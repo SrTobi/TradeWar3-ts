@@ -1,6 +1,6 @@
 import { useGameStore } from '@/store/gameStore';
 import { useUIStore } from '@/store/uiStore';
-import { unifiedGameClient } from '@/network/unifiedClient';
+import { gameClient } from '@/network/client';
 import { Hex } from './Hex';
 import { Connections } from './Connections';
 import { Particles } from './Particles';
@@ -37,7 +37,7 @@ export function HexMap() {
     // Now try to spend money
     if (spendMoney(gameState.unitCost)) {
       playPlaceUnit();
-      unifiedGameClient.send({ type: 'placeUnits', coords });
+      gameClient.send({ type: 'placeUnits', coords });
       // Store the last clicked hex so spacebar can repeat the action
       setLastClickedHex(coords);
     } else {
