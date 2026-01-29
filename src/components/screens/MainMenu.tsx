@@ -212,7 +212,11 @@ function getServerConfig(): ServerConfig {
   // Auto-detect based on protocol
   if (window.location.protocol === 'https:') {
     // HTTPS: Use path-based websocket connection via Caddy proxy
-    // Use hostname (without port) since Caddy typically runs on standard ports
+    // Use configured default server if available, otherwise fall back to current hostname
+    const defaultServer = import.meta.env.VITE_DEFAULT_SERVER;
+    if (defaultServer) {
+      return { address: defaultServer, path: '/ws' };
+    }
     return { address: window.location.hostname, path: '/ws' };
   }
   
