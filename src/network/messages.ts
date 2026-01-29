@@ -17,7 +17,8 @@ export type ClientMessage =
   | { type: 'leaveGame' }
   | { type: 'startGame' }
   | { type: 'placeUnits'; coords: HexCoord }
-  | { type: 'ping'; timestamp: number };
+  | { type: 'ping'; timestamp: number }
+  | { type: 'addAi' };
 
 export type ServerMessage =
   | { type: 'welcome'; playerId: string }

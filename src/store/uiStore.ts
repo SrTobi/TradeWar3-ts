@@ -14,6 +14,8 @@ interface UIStore {
   setScreen: (screen: Screen) => void;
   hoveredHex: HexCoord | null;
   setHoveredHex: (hex: HexCoord | null) => void;
+  lastClickedHex: HexCoord | null;
+  setLastClickedHex: (hex: HexCoord | null) => void;
   battleParticles: BattleParticle[];
   addBattleParticle: (coords: HexCoord) => void;
   removeBattleParticle: (id: string) => void;
@@ -51,6 +53,9 @@ export const useUIStore = create<UIStore>((set) => ({
 
   hoveredHex: null,
   setHoveredHex: (hex) => set({ hoveredHex: hex }),
+
+  lastClickedHex: null,
+  setLastClickedHex: (hex) => set({ lastClickedHex: hex }),
 
   battleParticles: [],
   addBattleParticle: (coords) => {

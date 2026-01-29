@@ -26,6 +26,7 @@ export interface Player {
   id: string;
   name: string;
   factionId: string;
+  isAi?: boolean;
 }
 
 export interface GameState {
