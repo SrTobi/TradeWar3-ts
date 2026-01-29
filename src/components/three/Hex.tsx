@@ -3,13 +3,15 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Country } from '@/types/game';
 import { getFactionColor } from '@/types/game';
-import { getCountryOwner } from '@/game/battle';
+import { getCountryOwner, countControlledNeighbors } from '@/game/battle';
 import { hexToPixel } from '@/game/hex';
 import { useUIStore } from '@/store/uiStore';
 import { Text } from '@react-three/drei';
+import { GAME } from '@/game/constants';
 
 interface HexProps {
   country: Country;
+  countries: Country[];
   size: number;
   onClick: () => void;
 }
@@ -55,7 +57,7 @@ function createRoundedRectShape(width: number, height: number, radius: number): 
   return shape;
 }
 
-export function Hex({ country, size, onClick }: HexProps) {
+export function Hex({ country, countries, size, onClick }: HexProps) {
   const groupRef = useRef<THREE.Group>(null);
   const glowRingsRef = useRef<THREE.Group>(null);
   const innerHighlightRef = useRef<THREE.LineLoop>(null);
@@ -167,6 +169,22 @@ export function Hex({ country, size, onClick }: HexProps) {
     return new THREE.ShapeGeometry(shape);
   }, [size]);
 
+  // Smaller defense bonus badge geometry
+  const defenseBadgeGeometry = useMemo(() => {
+    const shape = createRoundedRectShape(size * 0.55, size * 0.28, size * 0.06);
+    return new THREE.ShapeGeometry(shape);
+  }, [size]);
+
+  // Calculate defense bonus from controlled neighbors
+  const defenseBonus = useMemo(() => {
+    if (isNeutral) return 0;
+    const controlledNeighbors = countControlledNeighbors(country, countries, owner);
+    return Math.min(
+      controlledNeighbors * GAME.TERRITORIAL_ADVANTAGE_PER_NEIGHBOR,
+      GAME.MAX_TERRITORIAL_ADVANTAGE
+    );
+  }, [country, countries, owner, isNeutral]);
+
   useFrame((_, delta) => {
     pulseTimeRef.current += delta;
     const pulseTime = pulseTimeRef.current;
@@ -237,7 +255,10 @@ export function Hex({ country, size, onClick }: HexProps) {
           {unitEntries.map(([factionId, count], idx) => {
             const badgeColor = new THREE.Color(getFactionColor(factionId));
             const textColor = getContrastColor(badgeColor);
-            const yOffset = ((unitEntries.length - 1) / 2) * size * 0.4 - idx * size * 0.4;
+            // Shift badges up when defense bonus is displayed
+            const defenseOffset = defenseBonus > 0 ? size * 0.15 : 0;
+            const yOffset =
+              ((unitEntries.length - 1) / 2) * size * 0.4 - idx * size * 0.4 + defenseOffset;
 
             return (
               <group key={factionId} position={[0, yOffset, 0]}>
@@ -274,6 +295,37 @@ export function Hex({ country, size, onClick }: HexProps) {
               </group>
             );
           })}
+        </group>
+      )}
+
+      {/* Defense bonus badge - shows territorial advantage from controlled neighbors */}
+      {defenseBonus > 0 && (
+        <group position={[0, -size * 0.32, 0.1]}>
+          {/* Badge background shadow */}
+          <mesh geometry={defenseBadgeGeometry} position={[size * 0.015, -size * 0.015, -0.01]}>
+            <meshBasicMaterial color="#000000" transparent opacity={0.4} />
+          </mesh>
+          {/* Badge background - darker color to indicate defense */}
+          <mesh geometry={defenseBadgeGeometry}>
+            <meshBasicMaterial color={darken(baseColor, 0.2)} />
+          </mesh>
+          {/* Badge border highlight */}
+          <mesh geometry={defenseBadgeGeometry} position={[0, 0, 0.005]}>
+            <meshBasicMaterial color={lighten(baseColor, 0.1)} transparent opacity={0.5} wireframe />
+          </mesh>
+          {/* Defense bonus text */}
+          <Text
+            position={[0, 0, 0.02]}
+            fontSize={size * 0.18}
+            color="#ffffff"
+            anchorX="center"
+            anchorY="middle"
+            fontWeight="bold"
+            outlineWidth={size * 0.012}
+            outlineColor="#000000"
+          >
+            +{Math.round(defenseBonus * 100)}%
+          </Text>
         </group>
       )}
     </group>

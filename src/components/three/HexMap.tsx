@@ -55,6 +55,7 @@ export function HexMap() {
         <Hex
           key={`${country.coords.q},${country.coords.r}`}
           country={country}
+          countries={gameState.countries}
           size={HEX_SIZE}
           onClick={() => handleHexClick(country.coords)}
         />
