@@ -1,4 +1,5 @@
 import { useGameStore } from '@/store/gameStore';
+import { useUIStore } from '@/store/uiStore';
 import { gameClient } from '@/network/client';
 import { Hex } from './Hex';
 import { Connections } from './Connections';
@@ -13,6 +14,7 @@ export function HexMap() {
   const gameState = useGameStore((s) => s.gameState);
   const localFactionId = useGameStore((s) => s.local.factionId);
   const spendMoney = useGameStore((s) => s.spendMoney);
+  const setLastClickedHex = useUIStore((s) => s.setLastClickedHex);
 
   if (!gameState) return null;
 
@@ -36,6 +38,8 @@ export function HexMap() {
     if (spendMoney(gameState.unitCost)) {
       playPlaceUnit();
       gameClient.send({ type: 'placeUnits', coords });
+      // Store the last clicked hex so spacebar can repeat the action
+      setLastClickedHex(coords);
     } else {
       playError();
     }
