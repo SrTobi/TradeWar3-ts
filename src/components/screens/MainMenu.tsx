@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera } from '@react-three/drei';
 import { useUIStore } from '@/store/uiStore';
 import { useGameStore } from '@/store/gameStore';
-import { gameClient } from '@/network/client';
+import { gameClient, ServerConfig } from '@/network/client';
 import { GAME } from '@/game/constants';
 import { Starfield } from '@/components/three/Starfield';
 import type { GameInfo } from '@/network/messages';
@@ -180,19 +180,52 @@ const emptyStyle: React.CSSProperties = {
   fontSize: '14px',
 };
 
-// Get server from URL param or default to localhost
-function getServerAddress(): { address: string; port: number } {
+// Get server configuration from URL param or use smart defaults
+// For HTTPS pages (production), use path-based websocket (/ws) with Caddy proxy
+// For HTTP pages (local dev), use direct port connection
+function getServerConfig(): ServerConfig {
   const params = new URLSearchParams(window.location.search);
   const server = params.get('server');
+  
   if (server) {
-    const parts = server.split(':');
-    return {
-      address: parts[0],
-      port: parts[1] ? parseInt(parts[1]) : GAME.SERVER_PORT,
-    };
+    // Explicit server specified in URL - parse it
+    // Supports: "host:port", "host/path", or just "host"
+    if (server.includes('/')) {
+      // Path-based: "example.com/ws" or "example.com:8443/ws"
+      const slashIndex = server.indexOf('/');
+      const address = server.substring(0, slashIndex);
+      const path = server.substring(slashIndex);
+      return { address, path };
+    } else if (server.includes(':')) {
+      // Port-based: "example.com:12346"
+      const parts = server.split(':');
+      return {
+        address: parts[0],
+        port: parseInt(parts[1]),
+      };
+    } else {
+      // Just hostname - use default port
+      return { address: server, port: GAME.SERVER_PORT };
+    }
   }
-  // Use the current website's hostname as the default address
+  
+  // Auto-detect based on protocol
+  if (window.location.protocol === 'https:') {
+    // HTTPS: Use path-based websocket connection via Caddy proxy
+    // Use hostname (without port) since Caddy typically runs on standard ports
+    return { address: window.location.hostname, path: '/ws' };
+  }
+  
+  // HTTP (local dev): Use direct port connection
   return { address: window.location.hostname, port: GAME.SERVER_PORT };
+}
+
+// Format server config for display
+function formatServerConfig(config: ServerConfig): string {
+  if (config.path) {
+    return `${config.address}${config.path}`;
+  }
+  return `${config.address}:${config.port}`;
 }
 
 export function MainMenu() {
@@ -203,7 +236,7 @@ export function MainMenu() {
   const [connecting, setConnecting] = useState(false);
   const [games, setGames] = useState<GameInfo[]>([]);
   const hasConnected = useRef(false);
-  const server = getServerAddress();
+  const server = getServerConfig();
 
   // Auto-connect on mount
   useEffect(() => {
@@ -213,7 +246,7 @@ export function MainMenu() {
     const connect = async () => {
       setConnecting(true);
       try {
-        await gameClient.connect(server.address, server.port);
+        await gameClient.connect(server);
         setConnected(true);
         setError('');
 
@@ -265,7 +298,7 @@ export function MainMenu() {
           }
         });
       } catch {
-        setError(`Failed to connect to ${server.address}:${server.port}`);
+        setError(`Failed to connect to ${formatServerConfig(server)}`);
       } finally {
         setConnecting(false);
       }
@@ -322,7 +355,7 @@ export function MainMenu() {
         <div style={panelStyle}>
           {connecting ? (
             <div style={statusStyle}>
-              Connecting to {server.address}:{server.port}...
+              Connecting to {formatServerConfig(server)}...
             </div>
           ) : !connected ? (
             <div style={errorStyle}>{error || 'Not connected'}</div>
@@ -380,7 +413,7 @@ export function MainMenu() {
         </div>
 
         <p style={{ marginTop: '30px', color: '#445566', fontSize: '13px' }}>
-          Server: {server.address}:{server.port}
+          Server: {formatServerConfig(server)}
         </p>
       </div>
     </div>

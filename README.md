@@ -43,12 +43,13 @@ To enable GitHub Pages for this repository:
 
 ### Hetzner VPS Deployment
 
-The project can also be deployed to a Hetzner VPS using the GitHub Actions workflow (`.github/workflows/deploy-hetzner.yml`). This deploys the full application including the WebSocket game server.
+The project can also be deployed to a Hetzner VPS using the GitHub Actions workflow (`.github/workflows/deploy-hetzner.yml`). This deploys the WebSocket game server with optional HTTPS support via Caddy.
 
 #### Prerequisites
 
-1. A Hetzner VPS with Docker installed
+1. A Hetzner VPS with Node.js installed
 2. SSH access to the VPS
+3. A domain name pointing to your VPS (for HTTPS)
 
 #### Setup
 
@@ -59,25 +60,60 @@ The project can also be deployed to a Hetzner VPS using the GitHub Actions workf
    - `HETZNER_USERNAME`: SSH username (e.g., `root`)
    - `HETZNER_SSH_KEY`: Private SSH key for authentication
    - `HETZNER_SSH_PORT`: SSH port (optional, defaults to 22)
-   - `CR_PAT`: GitHub Personal Access Token with `read:packages` scope for pulling container images
+   - `DOMAIN`: Your domain name (e.g., `tradewar.example.com`) - **required for HTTPS**
 
-3. Ensure Docker is installed on your Hetzner VPS:
+3. Ensure Node.js is installed on your Hetzner VPS:
    ```bash
-   curl -fsSL https://get.docker.com | sh
+   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+   sudo apt-get install -y nodejs
    ```
 
-4. The workflow will automatically:
-   - Build a Docker image
-   - Push it to GitHub Container Registry (ghcr.io)
-   - SSH into your VPS and deploy the container
+4. Configure your DNS to point your domain to your VPS IP address
+
+5. The workflow will automatically:
+   - Clone the repository on your VPS
+   - Install dependencies and bundle the server
+   - Start the game server
+   - Install and configure Caddy for HTTPS (if `DOMAIN` is set)
+
+#### HTTPS Support
+
+When the `DOMAIN` secret is configured, the deployment automatically installs and configures [Caddy](https://caddyserver.com/) as a reverse proxy, which provides:
+- **Automatic HTTPS certificates** from Let's Encrypt
+- **Automatic certificate renewal**
+- **Secure WebSocket connections (WSS)** for the game server
+
+When deployed with a domain:
+- The frontend is served over HTTPS on port 443
+- HTTP requests on port 80 are automatically redirected to HTTPS
+- WebSocket connections use the secure `wss://` protocol via the `/ws` path
+- Caddy handles all TLS termination automatically
+
+**Note:** Automatic HTTPS only works when a valid domain name is configured (not `localhost`).
 
 #### Ports
 
 The application exposes:
-- Port 8080: Frontend web server
-- Port 12346: WebSocket game server
+- Port 80: HTTP (automatically redirects to HTTPS when a valid domain is configured)
+- Port 443: HTTPS (frontend and secure WebSocket)
+- Port 12346: WebSocket game server (direct access, used when no domain is configured)
 
 Make sure these ports are open in your VPS firewall.
+
+#### Connecting from GitHub Pages
+
+To connect the GitHub Pages frontend to your VPS game server, add the server address as a URL parameter:
+
+```
+https://srtobi.github.io/TradeWar3-ts/?server=your-domain.com/ws
+```
+
+The `server` parameter supports several formats:
+- `your-domain.com/ws` - Path-based connection (for Caddy proxy with HTTPS)
+- `your-domain.com:12346` - Port-based connection (for direct connection)
+- `your-domain.com` - Uses default port 12346
+
+When accessed without the `server` parameter, the frontend attempts to connect to a game server on the same host.
 
 ## License
 
