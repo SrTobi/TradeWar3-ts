@@ -189,17 +189,31 @@ function getServerConfig(): ServerConfig {
   
   if (server) {
     // Explicit server specified in URL - parse it
-    const parts = server.split(':');
-    return {
-      address: parts[0],
-      port: parts[1] ? parseInt(parts[1]) : GAME.SERVER_PORT,
-    };
+    // Supports: "host:port", "host/path", or just "host"
+    if (server.includes('/')) {
+      // Path-based: "example.com/ws" or "example.com:8443/ws"
+      const slashIndex = server.indexOf('/');
+      const address = server.substring(0, slashIndex);
+      const path = server.substring(slashIndex);
+      return { address, path };
+    } else if (server.includes(':')) {
+      // Port-based: "example.com:12346"
+      const parts = server.split(':');
+      return {
+        address: parts[0],
+        port: parseInt(parts[1]),
+      };
+    } else {
+      // Just hostname - use default port
+      return { address: server, port: GAME.SERVER_PORT };
+    }
   }
   
   // Auto-detect based on protocol
   if (window.location.protocol === 'https:') {
     // HTTPS: Use path-based websocket connection via Caddy proxy
-    return { address: window.location.host, path: '/ws' };
+    // Use hostname (without port) since Caddy typically runs on standard ports
+    return { address: window.location.hostname, path: '/ws' };
   }
   
   // HTTP (local dev): Use direct port connection

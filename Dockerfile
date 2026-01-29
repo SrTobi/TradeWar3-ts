@@ -17,23 +17,38 @@ COPY --from=builder /app/dist /srv
 # Copy Caddyfile
 COPY Caddyfile /etc/caddy/Caddyfile
 
-# Copy server files and install Node.js for the game server
-RUN apk add --no-cache nodejs npm
+# Copy server bundle and only the ws dependency (externalized by esbuild)
+RUN apk add --no-cache nodejs
 COPY --from=builder /app/server-bundle /app/server-bundle
-COPY --from=builder /app/node_modules /app/node_modules
-COPY --from=builder /app/package.json /app/package.json
+COPY --from=builder /app/node_modules/ws /app/node_modules/ws
 
-# Install pnpm for running server
-RUN npm install -g pnpm
-
-# Create startup script
-RUN echo '#!/bin/sh' > /app/start.sh && \
-    echo 'node /app/server-bundle/server.js &' >> /app/start.sh && \
-    echo 'caddy run --config /etc/caddy/Caddyfile --adapter caddyfile' >> /app/start.sh && \
-    chmod +x /app/start.sh
+# Create startup script that monitors both processes
+RUN printf '#!/bin/sh\n\
+# Start game server and monitor it\n\
+node /app/server-bundle/server.js &\n\
+SERVER_PID=$!\n\
+\n\
+# Start Caddy\n\
+caddy run --config /etc/caddy/Caddyfile --adapter caddyfile &\n\
+CADDY_PID=$!\n\
+\n\
+# Monitor both processes - exit if either dies\n\
+while true; do\n\
+  if ! kill -0 $SERVER_PID 2>/dev/null; then\n\
+    echo "Game server died, exiting..."\n\
+    kill $CADDY_PID 2>/dev/null || true\n\
+    exit 1\n\
+  fi\n\
+  if ! kill -0 $CADDY_PID 2>/dev/null; then\n\
+    echo "Caddy died, exiting..."\n\
+    kill $SERVER_PID 2>/dev/null || true\n\
+    exit 1\n\
+  fi\n\
+  sleep 5\n\
+done\n' > /app/start.sh && chmod +x /app/start.sh
 
 # Expose ports: 80 for HTTP, 443 for HTTPS
 EXPOSE 80 443
 
-# Run both Caddy and game server
+# Run both Caddy and game server with monitoring
 CMD ["/app/start.sh"]

@@ -83,20 +83,34 @@ The deployment uses [Caddy](https://caddyserver.com/) as a reverse proxy, which 
 
 When deployed with a domain:
 - The frontend is served over HTTPS on port 443
+- HTTP requests on port 80 are automatically redirected to HTTPS
 - WebSocket connections use the secure `wss://` protocol via the `/ws` path
 - Caddy handles all TLS termination automatically
+
+**Note:** Automatic HTTPS and HTTP→HTTPS redirection only work when a valid domain name is configured (not `localhost`).
 
 #### Ports
 
 The application exposes:
-- Port 80: HTTP (redirects to HTTPS when domain is configured)
+- Port 80: HTTP (automatically redirects to HTTPS when a valid domain is configured)
 - Port 443: HTTPS (frontend and secure WebSocket)
 
 Make sure these ports are open in your VPS firewall.
 
 #### Connecting from GitHub Pages
 
-The GitHub Pages frontend will automatically detect the HTTPS protocol and connect to your game server using secure WebSockets. The client uses the `/ws` path for WebSocket connections when running over HTTPS.
+To connect the GitHub Pages frontend to your VPS game server, add the server address as a URL parameter:
+
+```
+https://srtobi.github.io/TradeWar3-ts/?server=your-domain.com/ws
+```
+
+The `server` parameter supports several formats:
+- `your-domain.com/ws` - Path-based connection (for Caddy proxy with HTTPS)
+- `your-domain.com:12346` - Port-based connection (for direct connection)
+- `your-domain.com` - Uses default port 12346
+
+When accessed without the `server` parameter, the frontend attempts to connect to a game server on the same host.
 
 ## License
 
