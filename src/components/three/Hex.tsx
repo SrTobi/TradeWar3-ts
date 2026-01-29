@@ -3,15 +3,14 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Country } from '@/types/game';
 import { getFactionColor } from '@/types/game';
-import { getCountryOwner, countControlledNeighbors } from '@/game/battle';
+import { getCountryOwner } from '@/game/battle';
 import { hexToPixel } from '@/game/hex';
 import { useUIStore } from '@/store/uiStore';
 import { Text } from '@react-three/drei';
-import { GAME } from '@/game/constants';
 
 interface HexProps {
   country: Country;
-  countries: Country[];
+  defenseBonus: number;
   size: number;
   onClick: () => void;
 }
@@ -57,7 +56,7 @@ function createRoundedRectShape(width: number, height: number, radius: number): 
   return shape;
 }
 
-export function Hex({ country, countries, size, onClick }: HexProps) {
+export function Hex({ country, defenseBonus, size, onClick }: HexProps) {
   const groupRef = useRef<THREE.Group>(null);
   const glowRingsRef = useRef<THREE.Group>(null);
   const innerHighlightRef = useRef<THREE.LineLoop>(null);
@@ -174,16 +173,6 @@ export function Hex({ country, countries, size, onClick }: HexProps) {
     const shape = createRoundedRectShape(size * 0.55, size * 0.28, size * 0.06);
     return new THREE.ShapeGeometry(shape);
   }, [size]);
-
-  // Calculate defense bonus from controlled neighbors
-  const defenseBonus = useMemo(() => {
-    if (isNeutral) return 0;
-    const controlledNeighbors = countControlledNeighbors(country, countries, owner);
-    return Math.min(
-      controlledNeighbors * GAME.TERRITORIAL_ADVANTAGE_PER_NEIGHBOR,
-      GAME.MAX_TERRITORIAL_ADVANTAGE
-    );
-  }, [country, countries, owner, isNeutral]);
 
   useFrame((_, delta) => {
     pulseTimeRef.current += delta;
