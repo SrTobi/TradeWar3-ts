@@ -23,6 +23,8 @@ interface UIStore {
   setPlayerName: (name: string) => void;
   isHost: boolean;
   setIsHost: (isHost: boolean) => void;
+  pingLatency: number | null;
+  setPingLatency: (latency: number | null) => void;
 }
 
 let particleId = 0;
@@ -76,6 +78,9 @@ export const useUIStore = create<UIStore>((set) => ({
 
   isHost: false,
   setIsHost: (isHost) => set({ isHost }),
+
+  pingLatency: null,
+  setPingLatency: (latency) => set({ pingLatency: latency }),
 
   removeBattleParticle: (id) =>
     set((s) => ({

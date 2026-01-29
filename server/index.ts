@@ -109,6 +109,9 @@ class GameServer {
       case 'placeUnits':
         this.handlePlaceUnits(client, msg.coords);
         break;
+      case 'ping':
+        this.send(client.ws, { type: 'pong', timestamp: msg.timestamp });
+        break;
       case 'addAi':
         this.handleAddAi(client);
         break;

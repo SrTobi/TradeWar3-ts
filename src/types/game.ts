@@ -66,3 +66,15 @@ export function getFactionColor(factionId: string): string {
   if (factionId === 'neutral') return FACTION_COLORS.neutral;
   return FACTION_COLORS[factionId] || FACTION_COLORS.faction0;
 }
+
+export function getConnectionStatusColor(latency: number | null): string {
+  if (latency === null) {
+    return '#666666'; // Gray - unknown/disconnected
+  } else if (latency < 100) {
+    return '#44dd66'; // Green - good connection
+  } else if (latency < 200) {
+    return '#ddaa44'; // Yellow - moderate connection
+  } else {
+    return '#ff4444'; // Red - poor connection
+  }
+}

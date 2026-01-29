@@ -3,7 +3,7 @@ import { OrthographicCamera } from '@react-three/drei';
 import { useGameStore } from '@/store/gameStore';
 import { useUIStore } from '@/store/uiStore';
 import { gameClient } from '@/network/client';
-import { FACTION_COLORS } from '@/types/game';
+import { FACTION_COLORS, getConnectionStatusColor } from '@/types/game';
 import { Starfield } from '@/components/three/Starfield';
 import { playClick, playGameStart } from '@/audio/sounds';
 
@@ -119,6 +119,19 @@ export function Lobby() {
   const local = useGameStore((s) => s.local);
   const isHost = useUIStore((s) => s.isHost);
   const setScreen = useUIStore((s) => s.setScreen);
+  const pingLatency = useUIStore((s) => s.pingLatency);
+
+  const getStatusDotStyle = (latency: number | null): React.CSSProperties => {
+    const color = getConnectionStatusColor(latency);
+    return {
+      width: '8px',
+      height: '8px',
+      borderRadius: '50%',
+      background: color,
+      boxShadow: latency !== null ? `0 0 4px ${color}` : 'none',
+      display: 'inline-block',
+    };
+  };
 
   const handleStartGame = () => {
     playGameStart();
@@ -185,8 +198,19 @@ export function Lobby() {
                 {player.isAi && <span style={{ color: '#aa88dd', fontSize: '12px' }}>AI</span>}
                 {isPlayerHost && <span style={{ color: '#ddaa44', fontSize: '12px' }}>HOST</span>}
                 {isLocal && (
-                  <span style={{ color: '#88aaff', fontSize: '12px', marginLeft: '8px' }}>
-                    (YOU)
+                  <span
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginLeft: '8px',
+                    }}
+                  >
+                    <span style={getStatusDotStyle(pingLatency)} />
+                    <span style={{ color: '#88aaff', fontSize: '12px' }}>
+                      {pingLatency !== null ? `${pingLatency}ms` : '--'}
+                    </span>
+                    <span style={{ color: '#88aaff', fontSize: '12px' }}>(YOU)</span>
                   </span>
                 )}
               </div>

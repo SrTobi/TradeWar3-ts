@@ -196,7 +196,7 @@ function getServerAddress(): { address: string; port: number } {
 }
 
 export function MainMenu() {
-  const { playerName, setPlayerName, setScreen } = useUIStore();
+  const { playerName, setPlayerName, setScreen, setPingLatency } = useUIStore();
   const { setLocalPlayer, setGameState } = useGameStore();
   const [error, setError] = useState('');
   const [connected, setConnected] = useState(false);
@@ -216,6 +216,11 @@ export function MainMenu() {
         await gameClient.connect(server.address, server.port);
         setConnected(true);
         setError('');
+
+        // Register latency handler
+        gameClient.onLatency((latency) => {
+          setPingLatency(latency);
+        });
 
         gameClient.onMessage((msg) => {
           switch (msg.type) {

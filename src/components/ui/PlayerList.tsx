@@ -1,5 +1,6 @@
 import { useGameStore } from '@/store/gameStore';
-import { getFactionColor } from '@/types/game';
+import { useUIStore } from '@/store/uiStore';
+import { getFactionColor, getConnectionStatusColor } from '@/types/game';
 
 const containerStyle: React.CSSProperties = {
   position: 'absolute',
@@ -15,11 +16,36 @@ const playerStyle: React.CSSProperties = {
   borderRadius: '4px',
   fontSize: '14px',
   fontWeight: 'bold',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '8px',
+};
+
+const pingContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '4px',
+  fontSize: '11px',
+  fontWeight: 'normal',
+  opacity: 0.9,
+};
+
+const statusDotStyle = (latency: number | null): React.CSSProperties => {
+  const color = getConnectionStatusColor(latency);
+  return {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    background: color,
+    boxShadow: latency !== null ? `0 0 4px ${color}` : 'none',
+  };
 };
 
 export function PlayerList() {
   const gameState = useGameStore((s) => s.gameState);
   const localFactionId = useGameStore((s) => s.local.factionId);
+  const pingLatency = useUIStore((s) => s.pingLatency);
 
   if (!gameState) return null;
 
@@ -38,7 +64,15 @@ export function PlayerList() {
               border: isLocal ? '2px solid white' : 'none',
             }}
           >
-            {player.name} {isLocal ? '(You)' : ''}
+            <span>
+              {player.name} {isLocal ? '(You)' : ''}
+            </span>
+            {isLocal && (
+              <div style={pingContainerStyle}>
+                <div style={statusDotStyle(pingLatency)} />
+                <span>{pingLatency !== null ? `${pingLatency}ms` : '--'}</span>
+              </div>
+            )}
           </div>
         );
       })}
