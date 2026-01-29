@@ -3,7 +3,7 @@ import { OrthographicCamera } from '@react-three/drei';
 import { useGameStore } from '@/store/gameStore';
 import { useUIStore } from '@/store/uiStore';
 import { gameClient } from '@/network/client';
-import { FACTION_COLORS } from '@/types/game';
+import { FACTION_COLORS, getConnectionStatusColor } from '@/types/game';
 import { Starfield } from '@/components/three/Starfield';
 import { playClick, playGameStart } from '@/audio/sounds';
 
@@ -113,17 +113,7 @@ export function Lobby() {
   const pingLatency = useUIStore((s) => s.pingLatency);
 
   const getStatusDotStyle = (latency: number | null): React.CSSProperties => {
-    let color: string;
-    if (latency === null) {
-      color = '#666666'; // Gray - unknown/disconnected
-    } else if (latency < 100) {
-      color = '#44dd66'; // Green - good connection
-    } else if (latency < 200) {
-      color = '#ddaa44'; // Yellow - moderate connection
-    } else {
-      color = '#ff4444'; // Red - poor connection
-    }
-
+    const color = getConnectionStatusColor(latency);
     return {
       width: '8px',
       height: '8px',

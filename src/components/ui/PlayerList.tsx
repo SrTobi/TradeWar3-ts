@@ -1,6 +1,6 @@
 import { useGameStore } from '@/store/gameStore';
 import { useUIStore } from '@/store/uiStore';
-import { getFactionColor } from '@/types/game';
+import { getFactionColor, getConnectionStatusColor } from '@/types/game';
 
 const containerStyle: React.CSSProperties = {
   position: 'absolute',
@@ -32,17 +32,7 @@ const pingContainerStyle: React.CSSProperties = {
 };
 
 const statusDotStyle = (latency: number | null): React.CSSProperties => {
-  let color: string;
-  if (latency === null) {
-    color = '#666666'; // Gray - unknown/disconnected
-  } else if (latency < 100) {
-    color = '#44dd66'; // Green - good connection
-  } else if (latency < 200) {
-    color = '#ddaa44'; // Yellow - moderate connection
-  } else {
-    color = '#ff4444'; // Red - poor connection
-  }
-
+  const color = getConnectionStatusColor(latency);
   return {
     width: '8px',
     height: '8px',

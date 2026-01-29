@@ -2,12 +2,14 @@ import type { ClientMessage, ServerMessage } from './messages';
 import { serialize, deserialize } from './messages';
 
 type MessageHandler = (msg: ServerMessage) => void;
-type LatencyHandler = (latency: number) => void;
+type LatencyHandler = (latency: number | null) => void;
+type DisconnectHandler = () => void;
 
 export class GameClient {
   private ws: WebSocket | null = null;
   private handlers: Set<MessageHandler> = new Set();
   private latencyHandlers: Set<LatencyHandler> = new Set();
+  private disconnectHandlers: Set<DisconnectHandler> = new Set();
   private pingInterval: ReturnType<typeof setInterval> | null = null;
 
   connect(address: string, port: number): Promise<void> {
@@ -37,6 +39,8 @@ export class GameClient {
 
       this.ws.onclose = () => {
         this.stopPingLoop();
+        this.latencyHandlers.forEach((h) => h(null)); // Reset latency on disconnect
+        this.disconnectHandlers.forEach((h) => h());
         this.ws = null;
       };
     });
@@ -64,6 +68,11 @@ export class GameClient {
   onLatency(handler: LatencyHandler): () => void {
     this.latencyHandlers.add(handler);
     return () => this.latencyHandlers.delete(handler);
+  }
+
+  onDisconnect(handler: DisconnectHandler): () => void {
+    this.disconnectHandlers.add(handler);
+    return () => this.disconnectHandlers.delete(handler);
   }
 
   get isConnected(): boolean {

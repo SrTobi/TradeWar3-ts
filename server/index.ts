@@ -92,7 +92,6 @@ class GameServer {
       case 'ping':
         this.send(client.ws, { type: 'pong', timestamp: msg.timestamp });
         break;
-        break;
     }
   }
 
