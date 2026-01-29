@@ -7,7 +7,7 @@ A space trading game built with React, Three.js, and TypeScript.
 ![Title Screen](screenshots/title-screen.png)
 *Game lobby - Create or join a game as a galactic commander*
 
-![Gameplay](screenshots/victory-screen.png)
+![Galactic Exchange](screenshots/galactic-exchange.png)
 *Galactic Exchange - Trade stocks and conquer the galaxy*
 
 ## Development
