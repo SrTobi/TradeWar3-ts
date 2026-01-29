@@ -151,6 +151,6 @@ export function checkWinner(countries: Country[], factions: Faction[]): Faction 
       }
     }
   }
-  
+
   return factions.find((f) => f.id === factionWithUnits) || null;
 }
