@@ -3,7 +3,9 @@ import { useGameStore } from '@/store/gameStore';
 import { useUIStore } from '@/store/uiStore';
 import { StockPanel } from './StockPanel';
 import { PlayerList } from './PlayerList';
-import { playVictory, playDefeat, playClick } from '@/audio/sounds';
+import { playVictory, playDefeat, playClick, playPlaceUnit, playError } from '@/audio/sounds';
+import { canPlaceUnits } from '@/game/battle';
+import { gameClient } from '@/network/client';
 
 const overlayStyle: React.CSSProperties = {
   position: 'absolute',
@@ -31,12 +33,28 @@ const winnerOverlayStyle: React.CSSProperties = {
   pointerEvents: 'auto',
 };
 
+const hiddenButtonStyle: React.CSSProperties = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+  pointerEvents: 'auto',
+};
+
 export function GameOverlay() {
   const gameState = useGameStore((s) => s.gameState);
   const localFactionId = useGameStore((s) => s.local.factionId);
+  const spendMoney = useGameStore((s) => s.spendMoney);
   const setScreen = useUIStore((s) => s.setScreen);
   const reset = useGameStore((s) => s.reset);
+  const lastClickedHex = useUIStore((s) => s.lastClickedHex);
   const prevPhaseRef = useRef<string | null>(null);
+  const troopButtonRef = useRef<HTMLButtonElement>(null);
 
   const isWinner = gameState?.winner?.id === localFactionId;
 
@@ -52,6 +70,36 @@ export function GameOverlay() {
     prevPhaseRef.current = gameState?.phase ?? null;
   }, [gameState?.phase, isWinner]);
 
+  // Focus the hidden troop button when a hex is clicked to enable spacebar repeat
+  useEffect(() => {
+    if (lastClickedHex && troopButtonRef.current) {
+      troopButtonRef.current.focus();
+    }
+  }, [lastClickedHex]);
+
+  // Handle repeating troop placement via the hidden button
+  const handleRepeatTroopPlacement = () => {
+    if (!gameState || !localFactionId || !lastClickedHex) return;
+    if (gameState.phase !== 'playing') return;
+
+    const country = gameState.countries.find(
+      (c) => c.coords.q === lastClickedHex.q && c.coords.r === lastClickedHex.r
+    );
+    if (!country) return;
+
+    if (!canPlaceUnits(country, gameState.countries, localFactionId)) {
+      playError();
+      return;
+    }
+
+    if (spendMoney(gameState.unitCost)) {
+      playPlaceUnit();
+      gameClient.send({ type: 'placeUnits', coords: lastClickedHex });
+    } else {
+      playError();
+    }
+  };
+
   const handleReturnToMenu = () => {
     playClick();
     reset();
@@ -60,6 +108,15 @@ export function GameOverlay() {
 
   return (
     <div style={overlayStyle}>
+      {/* Hidden button for spacebar repeat of troop placement */}
+      <button
+        ref={troopButtonRef}
+        style={hiddenButtonStyle}
+        onClick={handleRepeatTroopPlacement}
+        aria-label="Repeat troop placement"
+        tabIndex={-1}
+      />
+
       <div style={interactiveStyle}>
         <StockPanel />
         <PlayerList />
