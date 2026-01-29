@@ -5,6 +5,12 @@ type MessageHandler = (msg: ServerMessage) => void;
 type LatencyHandler = (latency: number | null) => void;
 type DisconnectHandler = () => void;
 
+export interface ServerConfig {
+  address: string;
+  port?: number;
+  path?: string;
+}
+
 export class GameClient {
   private ws: WebSocket | null = null;
   private handlers: Set<MessageHandler> = new Set();
@@ -12,10 +18,23 @@ export class GameClient {
   private disconnectHandlers: Set<DisconnectHandler> = new Set();
   private pingInterval: ReturnType<typeof setInterval> | null = null;
 
-  connect(address: string, port: number): Promise<void> {
-    console.log(`Connecting to ws://${address}:${port}`);
+  connect(config: ServerConfig): Promise<void> {
+    // Use wss:// for secure connections (HTTPS pages), ws:// for local development
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    
+    let url: string;
+    if (config.path) {
+      // Path-based connection (e.g., wss://example.com/ws) for Caddy proxy
+      url = `${protocol}://${config.address}${config.path}`;
+    } else if (config.port) {
+      // Port-based connection (e.g., ws://localhost:12346) for direct connection
+      url = `${protocol}://${config.address}:${config.port}`;
+    } else {
+      throw new Error('Either port or path must be specified');
+    }
+    
+    console.log(`Connecting to ${url}`);
     return new Promise((resolve, reject) => {
-      const url = `ws://${address}:${port}`;
       this.ws = new WebSocket(url);
 
       this.ws.onopen = () => {

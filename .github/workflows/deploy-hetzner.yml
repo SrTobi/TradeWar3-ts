@@ -25,6 +25,7 @@ jobs:
 
             REPO_URL="https://github.com/${{ github.repository }}.git"
             REPO_DIR=~/tradewar-server
+            DOMAIN="${{ secrets.DOMAIN }}"
 
             # Clone or pull the repository
             if [ -d "$REPO_DIR/.git" ]; then
@@ -39,42 +40,47 @@ jobs:
               cd "$REPO_DIR"
             fi
 
-            # Install pnpm if not available
-            if ! command -v pnpm &> /dev/null; then
-              echo "Installing pnpm..."
-              npm install -g pnpm
-            fi
+            # Stop existing container if running
+            echo "Stopping existing container..."
+            docker stop tradewar-galaxy 2>/dev/null || true
+            docker rm tradewar-galaxy 2>/dev/null || true
 
-            # Install dependencies and bundle server
-            echo "Installing dependencies..."
-            pnpm install
+            # Build Docker image
+            echo "Building Docker image..."
+            docker build -t tradewar-galaxy .
 
-            echo "Bundling server..."
-            pnpm run bundle:server
-
-            # Stop existing server if running
-            if [ -f server.pid ]; then
-              OLD_PID=$(cat server.pid)
-              if kill -0 $OLD_PID 2>/dev/null; then
-                echo "Stopping existing server (PID: $OLD_PID)..."
-                kill $OLD_PID || true
-                sleep 2
-              fi
-              rm -f server.pid
-            fi
-
-            # Start server with nohup
-            echo "Starting server..."
-            nohup node server-bundle/server.js > server.log 2>&1 &
-            echo $! > server.pid
-
-            # Wait and verify server started
-            sleep 3
-            if kill -0 $(cat server.pid) 2>/dev/null; then
-              echo "Server started successfully (PID: $(cat server.pid))"
-              tail -5 server.log
+            # Run container with Caddy for HTTPS
+            echo "Starting container with HTTPS support..."
+            if [ -n "$DOMAIN" ]; then
+              # Production: Use domain for automatic HTTPS certificates
+              docker run -d \
+                --name tradewar-galaxy \
+                --restart unless-stopped \
+                -p 80:80 \
+                -p 443:443 \
+                -e DOMAIN="$DOMAIN" \
+                -v caddy_data:/data \
+                -v caddy_config:/config \
+                tradewar-galaxy
+              echo "Server started with HTTPS on domain: $DOMAIN"
             else
-              echo "Server failed to start. Logs:"
-              cat server.log
+              # Development: Use localhost without HTTPS
+              docker run -d \
+                --name tradewar-galaxy \
+                --restart unless-stopped \
+                -p 80:80 \
+                tradewar-galaxy
+              echo "Server started on port 80 (no HTTPS - set DOMAIN secret for production)"
+            fi
+
+            # Wait and verify container started
+            sleep 5
+            if docker ps | grep -q tradewar-galaxy; then
+              echo "Container started successfully"
+              docker logs tradewar-galaxy --tail 10
+            else
+              echo "Container failed to start. Logs:"
+              docker logs tradewar-galaxy
               exit 1
             fi
+

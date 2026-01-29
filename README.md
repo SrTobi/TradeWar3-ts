@@ -43,12 +43,13 @@ To enable GitHub Pages for this repository:
 
 ### Hetzner VPS Deployment
 
-The project can also be deployed to a Hetzner VPS using the GitHub Actions workflow (`.github/workflows/deploy-hetzner.yml`). This deploys the full application including the WebSocket game server.
+The project can also be deployed to a Hetzner VPS using the GitHub Actions workflow (`.github/workflows/deploy-hetzner.yml`). This deploys the full application including the WebSocket game server with automatic HTTPS support via Caddy.
 
 #### Prerequisites
 
 1. A Hetzner VPS with Docker installed
 2. SSH access to the VPS
+3. A domain name pointing to your VPS (for HTTPS)
 
 #### Setup
 
@@ -59,25 +60,43 @@ The project can also be deployed to a Hetzner VPS using the GitHub Actions workf
    - `HETZNER_USERNAME`: SSH username (e.g., `root`)
    - `HETZNER_SSH_KEY`: Private SSH key for authentication
    - `HETZNER_SSH_PORT`: SSH port (optional, defaults to 22)
-   - `CR_PAT`: GitHub Personal Access Token with `read:packages` scope for pulling container images
+   - `DOMAIN`: Your domain name (e.g., `tradewar.example.com`) - **required for HTTPS**
 
 3. Ensure Docker is installed on your Hetzner VPS:
    ```bash
    curl -fsSL https://get.docker.com | sh
    ```
 
-4. The workflow will automatically:
-   - Build a Docker image
-   - Push it to GitHub Container Registry (ghcr.io)
-   - SSH into your VPS and deploy the container
+4. Configure your DNS to point your domain to your VPS IP address
+
+5. The workflow will automatically:
+   - Clone the repository on your VPS
+   - Build a Docker image with Caddy for automatic HTTPS
+   - Deploy the container with persistent SSL certificate storage
+
+#### HTTPS Support
+
+The deployment uses [Caddy](https://caddyserver.com/) as a reverse proxy, which provides:
+- **Automatic HTTPS certificates** from Let's Encrypt
+- **Automatic certificate renewal**
+- **Secure WebSocket connections (WSS)** for the game server
+
+When deployed with a domain:
+- The frontend is served over HTTPS on port 443
+- WebSocket connections use the secure `wss://` protocol via the `/ws` path
+- Caddy handles all TLS termination automatically
 
 #### Ports
 
 The application exposes:
-- Port 8080: Frontend web server
-- Port 12346: WebSocket game server
+- Port 80: HTTP (redirects to HTTPS when domain is configured)
+- Port 443: HTTPS (frontend and secure WebSocket)
 
 Make sure these ports are open in your VPS firewall.
+
+#### Connecting from GitHub Pages
+
+The GitHub Pages frontend will automatically detect the HTTPS protocol and connect to your game server using secure WebSockets. The client uses the `/ws` path for WebSocket connections when running over HTTPS.
 
 ## License
 
