@@ -66,6 +66,7 @@ class WebRTCTransport implements GameTransport {
 export class LocalGameServer {
   private rtcHost: WebRTCHost;
   private clients: Map<string, LocalClient> = new Map();
+  private peerIdToPlayerId: Map<string, string> = new Map(); // For O(1) lookups
   private games: Map<string, GameRoom> = new Map();
   private engine: GameEngine;
   private transport: WebRTCTransport;
@@ -98,12 +99,10 @@ export class LocalGameServer {
 
     // Handle messages from remote peers
     this.rtcHost.onMessage((msg, peerId) => {
-      // Find client by peerId
-      for (const client of this.clients.values()) {
-        if (client.peerId === peerId) {
-          this.engine.handleMessage(client.playerId, msg);
-          return;
-        }
+      // O(1) lookup using reverse map
+      const playerId = this.peerIdToPlayerId.get(peerId);
+      if (playerId) {
+        this.engine.handleMessage(playerId, msg);
       }
     });
 
@@ -120,6 +119,7 @@ export class LocalGameServer {
         peerId,
       };
       this.clients.set(newPlayerId, client);
+      this.peerIdToPlayerId.set(peerId, newPlayerId);
 
       // Send welcome message
       this.transport.send(newPlayerId, { type: 'welcome', playerId: newPlayerId });
@@ -127,13 +127,12 @@ export class LocalGameServer {
 
     this.rtcHost.onPeerDisconnected((peerId) => {
       console.log(`[LocalServer] Peer disconnected: ${peerId}`);
-      // Find and remove the client
-      for (const [playerId, client] of this.clients.entries()) {
-        if (client.peerId === peerId) {
-          this.engine.handleDisconnect(playerId);
-          this.clients.delete(playerId);
-          break;
-        }
+      // O(1) lookup using reverse map
+      const playerId = this.peerIdToPlayerId.get(peerId);
+      if (playerId) {
+        this.engine.handleDisconnect(playerId);
+        this.clients.delete(playerId);
+        this.peerIdToPlayerId.delete(peerId);
       }
     });
 
@@ -185,6 +184,7 @@ export class LocalGameServer {
     this.engine.destroyAllGames();
     this.rtcHost.close();
     this.clients.clear();
+    this.peerIdToPlayerId.clear();
     this.games.clear();
   }
 

@@ -253,6 +253,7 @@ export function MainMenu() {
   const [p2pOffer, setP2pOffer] = useState('');
   const [p2pAnswer, setP2pAnswer] = useState('');
   const [peerOffer, setPeerOffer] = useState('');
+  const [currentPeerId, setCurrentPeerId] = useState<string>('');
   const hasConnected = useRef(false);
   const server = getServerAddress();
 
@@ -342,10 +343,12 @@ export function MainMenu() {
       unifiedGameClient.onMessage(handleMessage);
 
       // Create initial offer for peers
-      const { offer } = await unifiedGameClient.createPeerOffer();
+      const { peerId, offer } = await unifiedGameClient.createPeerOffer();
+      setCurrentPeerId(peerId);
       setP2pOffer(offer);
     } catch (e) {
-      setError(`Failed to start P2P host: ${e}`);
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      setError(`Failed to start P2P host: ${errorMessage}`);
     } finally {
       setConnecting(false);
     }
@@ -371,7 +374,8 @@ export function MainMenu() {
 
       unifiedGameClient.onMessage(handleMessage);
     } catch (e) {
-      setError(`Failed to connect: ${e}`);
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      setError(`Failed to connect: ${errorMessage}`);
     } finally {
       setConnecting(false);
     }
@@ -384,15 +388,20 @@ export function MainMenu() {
       return;
     }
 
+    if (!currentPeerId) {
+      setError('No peer offer was created');
+      return;
+    }
+
     try {
-      // The peerId is embedded in the flow - we use the first peer for simplicity
-      await unifiedGameClient.acceptPeerAnswer('peer1', p2pAnswer.trim());
+      await unifiedGameClient.acceptPeerAnswer(currentPeerId, p2pAnswer.trim());
       setError('');
       setP2pAnswer('');
     } catch (e) {
-      setError(`Failed to accept answer: ${e}`);
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      setError(`Failed to accept answer: ${errorMessage}`);
     }
-  }, [p2pAnswer]);
+  }, [p2pAnswer, currentPeerId]);
 
   // Handle mode selection
   const selectMode = (mode: UIConnectionMode) => {
@@ -416,7 +425,9 @@ export function MainMenu() {
     setP2pOffer('');
     setP2pAnswer('');
     setPeerOffer('');
+    setCurrentPeerId('');
     hasConnected.current = false;
+    setIsHost(false);
     setConnectionMode('select');
   };
 

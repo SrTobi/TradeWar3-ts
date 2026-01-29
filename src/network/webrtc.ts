@@ -1,6 +1,10 @@
 /**
  * WebRTC P2P connection module
  * Uses public STUN servers for NAT traversal
+ *
+ * Note: This implementation uses only STUN servers without TURN servers.
+ * This means P2P connections may fail when both peers are behind symmetric NATs
+ * or restrictive firewalls. For most home/office networks, STUN is sufficient.
  */
 
 import type { ClientMessage, ServerMessage } from './messages';
@@ -36,6 +40,7 @@ interface PeerConnection {
   dataChannel: RTCDataChannel | null;
   peerId: string;
   isConnected: boolean;
+  isDisconnectHandled: boolean; // Flag to prevent duplicate disconnect handling
 }
 
 /**
@@ -65,6 +70,7 @@ export class WebRTCHost {
       dataChannel,
       peerId,
       isConnected: false,
+      isDisconnectHandled: false,
     };
 
     this.setupDataChannel(dataChannel, peer);
@@ -151,6 +157,17 @@ export class WebRTCHost {
     });
   }
 
+  /**
+   * Handle peer disconnection idempotently
+   */
+  private handlePeerDisconnect(peer: PeerConnection): void {
+    if (peer.isDisconnectHandled) return;
+    peer.isDisconnectHandled = true;
+    peer.isConnected = false;
+    this.peerDisconnectedHandlers.forEach((h) => h(peer.peerId));
+    this.peers.delete(peer.peerId);
+  }
+
   private setupDataChannel(channel: RTCDataChannel, peer: PeerConnection): void {
     channel.onopen = () => {
       console.log(`[WebRTC Host] Data channel opened for ${peer.peerId}`);
@@ -160,9 +177,7 @@ export class WebRTCHost {
 
     channel.onclose = () => {
       console.log(`[WebRTC Host] Data channel closed for ${peer.peerId}`);
-      peer.isConnected = false;
-      this.peerDisconnectedHandlers.forEach((h) => h(peer.peerId));
-      this.peers.delete(peer.peerId);
+      this.handlePeerDisconnect(peer);
     };
 
     channel.onmessage = (event) => {
@@ -181,9 +196,7 @@ export class WebRTCHost {
         connection.iceConnectionState === 'failed' ||
         connection.iceConnectionState === 'disconnected'
       ) {
-        peer.isConnected = false;
-        this.peerDisconnectedHandlers.forEach((h) => h(peer.peerId));
-        this.peers.delete(peer.peerId);
+        this.handlePeerDisconnect(peer);
       }
     };
   }
@@ -254,6 +267,7 @@ export class WebRTCClient {
   private latencyHandlers: Set<(latency: number | null) => void> = new Set();
   private pendingIceCandidates: RTCIceCandidateInit[] = [];
   private pingInterval: ReturnType<typeof setInterval> | null = null;
+  private isDisconnectHandled = false;
 
   /**
    * Connect to a host using their offer
@@ -337,6 +351,17 @@ export class WebRTCClient {
     });
   }
 
+  /**
+   * Handle disconnection idempotently
+   */
+  private handleDisconnect(): void {
+    if (this.isDisconnectHandled) return;
+    this.isDisconnectHandled = true;
+    this.stopPingLoop();
+    this.latencyHandlers.forEach((h) => h(null));
+    this.disconnectHandlers.forEach((h) => h());
+  }
+
   private setupDataChannel(): void {
     if (!this.dataChannel) return;
 
@@ -347,9 +372,7 @@ export class WebRTCClient {
 
     this.dataChannel.onclose = () => {
       console.log('[WebRTC Client] Data channel closed');
-      this.stopPingLoop();
-      this.latencyHandlers.forEach((h) => h(null));
-      this.disconnectHandlers.forEach((h) => h());
+      this.handleDisconnect();
     };
 
     this.dataChannel.onmessage = (event) => {
@@ -372,9 +395,7 @@ export class WebRTCClient {
         this.connection?.iceConnectionState === 'failed' ||
         this.connection?.iceConnectionState === 'disconnected'
       ) {
-        this.stopPingLoop();
-        this.latencyHandlers.forEach((h) => h(null));
-        this.disconnectHandlers.forEach((h) => h());
+        this.handleDisconnect();
       }
     };
   }
@@ -383,7 +404,10 @@ export class WebRTCClient {
     if (this.pingInterval) {
       this.stopPingLoop();
     }
-    this.sendPing();
+    // Only send ping if connected
+    if (this.dataChannel?.readyState === 'open') {
+      this.sendPing();
+    }
     this.pingInterval = setInterval(() => {
       this.sendPing();
     }, 5000);

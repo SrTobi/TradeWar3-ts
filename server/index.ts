@@ -14,10 +14,8 @@ interface ConnectedClient extends GameClient {
 class WebSocketTransport implements GameTransport {
   private clients: Map<string, ConnectedClient>;
 
-  constructor(clients: Map<string, ConnectedClient>, _games: Map<string, GameRoom>) {
+  constructor(clients: Map<string, ConnectedClient>) {
     this.clients = clients;
-    // games parameter kept for interface consistency but not used directly here
-    void _games;
   }
 
   send(playerId: string, msg: ServerMessage): void {
@@ -64,7 +62,7 @@ class GameServer {
     console.log(`Game server started on port ${port}`);
 
     // Create transport and engine
-    this.transport = new WebSocketTransport(this.clients, this.games);
+    this.transport = new WebSocketTransport(this.clients);
     this.engine = new GameEngine(
       this.transport,
       this.clients as Map<string, GameClient>,

@@ -188,6 +188,11 @@ export class UnifiedGameClient {
       this.rtcClient = null;
     }
 
+    // Clear all handlers to prevent stale callbacks
+    this.handlers.clear();
+    this.latencyHandlers.clear();
+    this.disconnectHandlers.clear();
+
     this.mode = null;
   }
 
