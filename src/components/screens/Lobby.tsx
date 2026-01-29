@@ -110,6 +110,29 @@ export function Lobby() {
   const local = useGameStore((s) => s.local);
   const isHost = useUIStore((s) => s.isHost);
   const setScreen = useUIStore((s) => s.setScreen);
+  const pingLatency = useUIStore((s) => s.pingLatency);
+
+  const getStatusDotStyle = (latency: number | null): React.CSSProperties => {
+    let color: string;
+    if (latency === null) {
+      color = '#666666'; // Gray - unknown/disconnected
+    } else if (latency < 100) {
+      color = '#44dd66'; // Green - good connection
+    } else if (latency < 200) {
+      color = '#ddaa44'; // Yellow - moderate connection
+    } else {
+      color = '#ff4444'; // Red - poor connection
+    }
+
+    return {
+      width: '8px',
+      height: '8px',
+      borderRadius: '50%',
+      background: color,
+      boxShadow: latency !== null ? `0 0 4px ${color}` : 'none',
+      display: 'inline-block',
+    };
+  };
 
   const handleStartGame = () => {
     playGameStart();
@@ -170,8 +193,19 @@ export function Lobby() {
                 <span style={{ color: '#dde', fontWeight: 'bold', flex: 1 }}>{player.name}</span>
                 {isPlayerHost && <span style={{ color: '#ddaa44', fontSize: '12px' }}>HOST</span>}
                 {isLocal && (
-                  <span style={{ color: '#88aaff', fontSize: '12px', marginLeft: '8px' }}>
-                    (YOU)
+                  <span
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginLeft: '8px',
+                    }}
+                  >
+                    <span style={getStatusDotStyle(pingLatency)} />
+                    <span style={{ color: '#88aaff', fontSize: '12px' }}>
+                      {pingLatency !== null ? `${pingLatency}ms` : '--'}
+                    </span>
+                    <span style={{ color: '#88aaff', fontSize: '12px' }}>(YOU)</span>
                   </span>
                 )}
               </div>

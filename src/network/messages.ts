@@ -16,7 +16,8 @@ export type ClientMessage =
   | { type: 'joinGame'; gameId: string }
   | { type: 'leaveGame' }
   | { type: 'startGame' }
-  | { type: 'placeUnits'; coords: HexCoord };
+  | { type: 'placeUnits'; coords: HexCoord }
+  | { type: 'ping'; timestamp: number };
 
 export type ServerMessage =
   | { type: 'welcome'; playerId: string }
@@ -26,7 +27,8 @@ export type ServerMessage =
   | { type: 'lobbyUpdate'; players: Player[] }
   | { type: 'gameStarted' }
   | { type: 'gameState'; state: GameState }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'pong'; timestamp: number };
 
 export function serialize(msg: ClientMessage | ServerMessage): string {
   return JSON.stringify(msg);
