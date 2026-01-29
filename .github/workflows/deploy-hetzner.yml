@@ -40,47 +40,83 @@ jobs:
               cd "$REPO_DIR"
             fi
 
-            # Stop existing container if running
-            echo "Stopping existing container..."
-            docker stop tradewar-galaxy 2>/dev/null || true
-            docker rm tradewar-galaxy 2>/dev/null || true
-
-            # Build Docker image
-            echo "Building Docker image..."
-            docker build -t tradewar-galaxy .
-
-            # Run container with Caddy for HTTPS
-            echo "Starting container with HTTPS support..."
-            if [ -n "$DOMAIN" ]; then
-              # Production: Use domain for automatic HTTPS certificates
-              docker run -d \
-                --name tradewar-galaxy \
-                --restart unless-stopped \
-                -p 80:80 \
-                -p 443:443 \
-                -e DOMAIN="$DOMAIN" \
-                -v caddy_data:/data \
-                -v caddy_config:/config \
-                tradewar-galaxy
-              echo "Server started with HTTPS on domain: $DOMAIN"
-            else
-              # Development: Use localhost without HTTPS
-              docker run -d \
-                --name tradewar-galaxy \
-                --restart unless-stopped \
-                -p 80:80 \
-                tradewar-galaxy
-              echo "Server started on port 80 (no HTTPS - set DOMAIN secret for production)"
+            # Install pnpm if not available
+            if ! command -v pnpm &> /dev/null; then
+              echo "Installing pnpm..."
+              npm install -g pnpm
             fi
 
-            # Wait and verify container started
-            sleep 5
-            if docker ps | grep -q tradewar-galaxy; then
-              echo "Container started successfully"
-              docker logs tradewar-galaxy --tail 10
+            # Install dependencies and bundle server
+            echo "Installing dependencies..."
+            pnpm install
+
+            echo "Bundling server..."
+            pnpm run bundle:server
+
+            # Stop existing server if running
+            if [ -f server.pid ]; then
+              OLD_PID=$(cat server.pid)
+              if kill -0 $OLD_PID 2>/dev/null; then
+                echo "Stopping existing server (PID: $OLD_PID)..."
+                kill $OLD_PID || true
+                sleep 2
+              fi
+              rm -f server.pid
+            fi
+
+            # Start game server with nohup
+            echo "Starting game server..."
+            nohup node server-bundle/server.js > server.log 2>&1 &
+            echo $! > server.pid
+
+            # Wait and verify server started
+            sleep 3
+            if kill -0 $(cat server.pid) 2>/dev/null; then
+              echo "Game server started successfully (PID: $(cat server.pid))"
+              tail -5 server.log
             else
-              echo "Container failed to start. Logs:"
-              docker logs tradewar-galaxy
+              echo "Game server failed to start. Logs:"
+              cat server.log
               exit 1
             fi
 
+            # Install and configure Caddy for HTTPS if domain is set
+            if [ -n "$DOMAIN" ]; then
+              echo "Setting up Caddy for HTTPS..."
+              
+              # Install Caddy if not present
+              if ! command -v caddy &> /dev/null; then
+                echo "Installing Caddy..."
+                apt-get update
+                apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+                curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+                curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+                apt-get update
+                apt-get install -y caddy
+              fi
+
+              # Create Caddyfile
+              echo "Configuring Caddy for domain: $DOMAIN"
+              cat > /etc/caddy/Caddyfile << EOF
+            $DOMAIN {
+                # Serve static files (if built frontend exists)
+                root * $REPO_DIR/dist
+                file_server
+
+                # WebSocket proxy for the game server
+                handle /ws {
+                    reverse_proxy localhost:12346
+                }
+
+                # Fallback to index.html for SPA routing
+                try_files {path} /index.html
+            }
+            EOF
+
+              # Reload Caddy
+              systemctl reload caddy || systemctl start caddy
+              echo "Caddy configured and running for $DOMAIN"
+            else
+              echo "No DOMAIN secret set - skipping Caddy setup"
+              echo "Game server running on port 12346 (WebSocket only)"
+            fi
