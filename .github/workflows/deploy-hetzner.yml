@@ -7,63 +7,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Bundle server
-        run: pnpm run bundle:server
-
-      - name: Upload server bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-bundle
-          path: server-bundle/
-
   deploy:
-    needs: build
     runs-on: ubuntu-latest
     environment: hetzner
     permissions: {}
 
     steps:
-      - name: Download server bundle
-        uses: actions/download-artifact@v4.1.7
-        with:
-          name: server-bundle
-          path: server-bundle/
-
-      - name: Copy server bundle to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.HETZNER_HOST }}
-          username: ${{ secrets.HETZNER_USERNAME }}
-          key: ${{ secrets.HETZNER_SSH_KEY }}
-          port: ${{ secrets.HETZNER_SSH_PORT }}
-          source: "server-bundle/server.js"
-          target: "~/tradewar-server"
-          strip_components: 1
-
-      - name: Deploy and run server
+      - name: Deploy to Hetzner VPS
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.HETZNER_HOST }}
@@ -73,13 +23,34 @@ jobs:
           script: |
             set -e
 
-            cd ~/tradewar-server
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+            REPO_DIR=~/tradewar-server
 
-            # Install ws dependency if needed
-            if [ ! -d "node_modules/ws" ]; then
-              npm init -y 2>/dev/null || true
-              npm install ws
+            # Clone or pull the repository
+            if [ -d "$REPO_DIR/.git" ]; then
+              echo "Updating existing repository..."
+              cd "$REPO_DIR"
+              git fetch origin
+              git reset --hard origin/main
+            else
+              echo "Cloning repository..."
+              rm -rf "$REPO_DIR"
+              git clone "$REPO_URL" "$REPO_DIR"
+              cd "$REPO_DIR"
             fi
+
+            # Install pnpm if not available
+            if ! command -v pnpm &> /dev/null; then
+              echo "Installing pnpm..."
+              npm install -g pnpm
+            fi
+
+            # Install dependencies and bundle server
+            echo "Installing dependencies..."
+            pnpm install
+
+            echo "Bundling server..."
+            pnpm run bundle:server
 
             # Stop existing server if running
             if [ -f server.pid ]; then
@@ -94,7 +65,7 @@ jobs:
 
             # Start server with nohup
             echo "Starting server..."
-            nohup node server.js > server.log 2>&1 &
+            nohup node server-bundle/server.js > server.log 2>&1 &
             echo $! > server.pid
 
             # Wait and verify server started
