@@ -6,6 +6,17 @@ import { processBattle, calculateUnitCost, canPlaceUnits, checkWinner } from '..
 import { createCompanies, updateStockPrice } from '../src/game/stock';
 import { GAME } from '../src/game/constants';
 
+const AI_NAMES = [
+  'Admiral Zex',
+  'Commander Nova',
+  'Captain Orion',
+  'General Nebula',
+  'Marshal Cosmos',
+  'Warlord Pulsar',
+];
+
+const AI_ACTION_INTERVAL = 800; // ms between AI actions
+
 interface ConnectedClient {
   ws: WebSocket;
   playerId: string;
@@ -13,11 +24,19 @@ interface ConnectedClient {
   currentGameId: string | null;
 }
 
+interface AiPlayer {
+  id: string;
+  name: string;
+  gameId: string;
+  lastActionTime: number;
+}
+
 interface GameRoom {
   id: string;
   hostId: string;
   gameState: GameState | null;
   clients: Set<string>; // playerIds
+  aiPlayers: Map<string, AiPlayer>; // aiId -> AiPlayer
   factionCounter: number;
   gameLoop: NodeJS.Timeout | null;
 }
@@ -29,6 +48,7 @@ class GameServer {
   private games: Map<string, GameRoom> = new Map();
   private playerCounter = 0;
   private gameCounter = 0;
+  private aiCounter = 0;
 
   constructor(port: number) {
     this.wss = new WebSocketServer({ port });
@@ -89,6 +109,9 @@ class GameServer {
       case 'placeUnits':
         this.handlePlaceUnits(client, msg.coords);
         break;
+      case 'addAi':
+        this.handleAddAi(client);
+        break;
     }
   }
 
@@ -134,6 +157,7 @@ class GameServer {
       hostId: client.playerId,
       gameState: null,
       clients: new Set([client.playerId]),
+      aiPlayers: new Map(),
       factionCounter: 0,
       gameLoop: null,
     };
@@ -353,11 +377,61 @@ class GameServer {
     room.gameState.unitCost = calculateUnitCost(room.gameState.countries);
   }
 
+  private handleAddAi(client: ConnectedClient): void {
+    if (!client.currentGameId) return;
+
+    const room = this.games.get(client.currentGameId);
+    if (!room) return;
+
+    // Only host can add AI
+    if (room.hostId !== client.playerId) {
+      this.send(client.ws, { type: 'error', message: 'Only host can add AI players' });
+      return;
+    }
+
+    // Cannot add AI after game started
+    if (room.gameState?.phase === 'playing') {
+      this.send(client.ws, { type: 'error', message: 'Cannot add AI during game' });
+      return;
+    }
+
+    // Max 6 total players
+    const totalPlayers = room.clients.size + room.aiPlayers.size;
+    if (totalPlayers >= 6) {
+      this.send(client.ws, { type: 'error', message: 'Game is full' });
+      return;
+    }
+
+    const aiId = `ai${++this.aiCounter}`;
+    const usedNames = new Set([
+      ...Array.from(room.clients).map((id) => this.clients.get(id)?.playerName),
+      ...Array.from(room.aiPlayers.values()).map((ai) => ai.name),
+    ]);
+    const availableNames = AI_NAMES.filter((name) => !usedNames.has(name));
+    const aiName = availableNames.length > 0 ? availableNames[0] : `AI Bot ${this.aiCounter}`;
+
+    const aiPlayer: AiPlayer = {
+      id: aiId,
+      name: aiName,
+      gameId: room.id,
+      lastActionTime: 0,
+    };
+
+    room.aiPlayers.set(aiId, aiPlayer);
+    this.broadcastLobbyUpdate(room);
+    this.broadcastGameList();
+
+    console.log(`AI player ${aiName} added to game ${room.id}`);
+  }
+
   private startGameLoop(room: GameRoom): void {
     room.gameLoop = setInterval(() => {
       if (!room.gameState || room.gameState.phase !== 'playing') return;
 
       const now = Date.now();
+
+      // Process AI actions
+      this.processAiActions(room, now);
 
       room.gameState.countries = room.gameState.countries.map((country: Country) => {
         if (now >= country.nextBattleTime) {
@@ -390,6 +464,89 @@ class GameServer {
     }, GAME.SERVER_TICK_RATE);
   }
 
+  private processAiActions(room: GameRoom, now: number): void {
+    if (!room.gameState) return;
+
+    for (const aiPlayer of room.aiPlayers.values()) {
+      // Scale AI action interval based on unit cost to make it fairer
+      // As unit cost increases, AI acts slower (simulating having to "earn" money)
+      const scaledInterval = AI_ACTION_INTERVAL * (room.gameState.unitCost / GAME.BASE_UNIT_COST);
+
+      // Check if it's time for AI to take action
+      if (now - aiPlayer.lastActionTime < scaledInterval) continue;
+
+      // Find the AI's faction in the game
+      const player: Player | undefined = room.gameState.players.find(
+        (p: Player) => p.id === aiPlayer.id
+      );
+      if (!player) continue;
+
+      const factionId = player.factionId;
+
+      // Find valid placement locations for AI
+      const validLocations = room.gameState.countries.filter((country) =>
+        canPlaceUnits(country, room.gameState!.countries, factionId)
+      );
+
+      if (validLocations.length === 0) continue;
+
+      // Strategy: Prioritize contested territories, then expansion, then reinforcement
+      const contestedLocations = validLocations.filter((country) => {
+        const factionIds = Object.keys(country.units).filter(
+          (id) => country.units[id] > 0 && id !== 'neutral'
+        );
+        return factionIds.length > 1;
+      });
+
+      const expansionLocations = validLocations.filter((country) => {
+        const myUnits = country.units[factionId] || 0;
+        return myUnits === 0;
+      });
+
+      const reinforcementLocations = validLocations.filter((country) => {
+        const myUnits = country.units[factionId] || 0;
+        return myUnits > 0;
+      });
+
+      let targetCountry: Country;
+
+      if (contestedLocations.length > 0) {
+        // Reinforce contested territories
+        targetCountry = contestedLocations[Math.floor(Math.random() * contestedLocations.length)];
+      } else if (expansionLocations.length > 0 && Math.random() < 0.7) {
+        // Expand to new territories 70% of the time when available
+        targetCountry = expansionLocations[Math.floor(Math.random() * expansionLocations.length)];
+      } else if (reinforcementLocations.length > 0) {
+        // Reinforce existing territories
+        targetCountry =
+          reinforcementLocations[Math.floor(Math.random() * reinforcementLocations.length)];
+      } else {
+        // Fallback to any valid location
+        targetCountry = validLocations[Math.floor(Math.random() * validLocations.length)];
+      }
+
+      // Place units
+      const countryIndex = room.gameState.countries.findIndex(
+        (c) => c.coords.q === targetCountry.coords.q && c.coords.r === targetCountry.coords.r
+      );
+
+      if (countryIndex !== -1) {
+        const country = room.gameState.countries[countryIndex];
+        const newUnits = { ...country.units };
+        newUnits[factionId] = (newUnits[factionId] || 0) + 1;
+
+        room.gameState.countries[countryIndex] = {
+          ...country,
+          units: newUnits,
+          nextBattleTime: Date.now() + GAME.PLACEMENT_GRACE_PERIOD,
+        };
+
+        room.gameState.unitCost = calculateUnitCost(room.gameState.countries);
+        aiPlayer.lastActionTime = now;
+      }
+    }
+  }
+
   private getGamePlayers(room: GameRoom): Player[] {
     const players: Player[] = [];
     let factionIndex = 0;
@@ -401,8 +558,19 @@ class GameServer {
           id: client.playerId,
           name: client.playerName,
           factionId: `faction${factionIndex++}`,
+          isAi: false,
         });
       }
+    }
+
+    // Add AI players
+    for (const aiPlayer of room.aiPlayers.values()) {
+      players.push({
+        id: aiPlayer.id,
+        name: aiPlayer.name,
+        factionId: `faction${factionIndex++}`,
+        isAi: true,
+      });
     }
 
     return players;
