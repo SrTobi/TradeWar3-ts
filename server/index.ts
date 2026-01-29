@@ -111,6 +111,7 @@ class GameServer {
         break;
       case 'ping':
         this.send(client.ws, { type: 'pong', timestamp: msg.timestamp });
+        break;
       case 'addAi':
         this.handleAddAi(client);
         break;
