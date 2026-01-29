@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "server": "tsx server/index.ts",
+    "bundle:server": "esbuild server/index.ts --bundle --platform=node --target=node20 --outfile=server-bundle/server.js --format=esm --external:ws --packages=external",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -15,12 +16,12 @@
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
+    "concurrently": "9.2.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "three": "^0.182.0",
     "ws": "^8.14.0",
-    "zustand": "^5.0.10",
-    "concurrently": "9.2.1"
+    "zustand": "^5.0.10"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
@@ -29,6 +30,7 @@
     "@types/three": "^0.182.0",
     "@types/ws": "^8.5.0",
     "@vitejs/plugin-react": "^5.1.2",
+    "esbuild": "^0.27.2",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.0",
