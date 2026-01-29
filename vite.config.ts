@@ -10,4 +10,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  define: {
+    'import.meta.env.VITE_DEFAULT_SERVER': JSON.stringify(process.env.VITE_DEFAULT_SERVER),
+  },
 });
