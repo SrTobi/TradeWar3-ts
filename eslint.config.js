@@ -12,6 +12,7 @@ export default defineConfig([
     ignores: [
       '**/node_modules/**',
       '**/dist/**',
+      '**/server-bundle/**',
       '**/*.min.js',
       '**/*.bundle.js',
       'eslint.config.js',
