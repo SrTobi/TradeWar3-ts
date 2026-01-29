@@ -99,6 +99,15 @@ const leaveButtonStyle: React.CSSProperties = {
   marginTop: '16px',
 };
 
+const addAiButtonStyle: React.CSSProperties = {
+  ...buttonStyle,
+  padding: '10px 20px',
+  fontSize: '13px',
+  background: 'linear-gradient(180deg, rgba(68, 85, 102, 1) 0%, rgba(51, 65, 80, 1) 100%)',
+  border: '2px solid rgba(102, 136, 170, 0.6)',
+  marginTop: '8px',
+};
+
 const waitingStyle: React.CSSProperties = {
   color: '#778899',
   fontSize: '16px',
@@ -120,6 +129,11 @@ export function Lobby() {
     playClick();
     gameClient.send({ type: 'leaveGame' });
     setScreen('menu');
+  };
+
+  const handleAddAi = () => {
+    playClick();
+    gameClient.send({ type: 'addAi' });
   };
 
   const players = gameState?.players || [];
@@ -157,6 +171,7 @@ export function Lobby() {
             const color = FACTION_COLORS[player.factionId] || FACTION_COLORS.faction1;
             const isLocal = player.factionId === local.factionId;
             const isPlayerHost = index === 0;
+            const isAi = player.id.startsWith('ai');
             return (
               <div
                 key={player.id}
@@ -168,6 +183,7 @@ export function Lobby() {
               >
                 <div style={{ ...colorBoxStyle, background: color }} />
                 <span style={{ color: '#dde', fontWeight: 'bold', flex: 1 }}>{player.name}</span>
+                {isAi && <span style={{ color: '#aa88dd', fontSize: '12px' }}>AI</span>}
                 {isPlayerHost && <span style={{ color: '#ddaa44', fontSize: '12px' }}>HOST</span>}
                 {isLocal && (
                   <span style={{ color: '#88aaff', fontSize: '12px', marginLeft: '8px' }}>
@@ -180,9 +196,16 @@ export function Lobby() {
         </div>
 
         {canStart ? (
-          <button style={buttonStyle} onClick={handleStartGame} disabled={players.length < 1}>
-            LAUNCH BATTLE
-          </button>
+          <>
+            <button style={buttonStyle} onClick={handleStartGame} disabled={players.length < 1}>
+              LAUNCH BATTLE
+            </button>
+            {players.length < 6 && (
+              <button style={addAiButtonStyle} onClick={handleAddAi}>
+                + ADD AI PLAYER
+              </button>
+            )}
+          </>
         ) : (
           <p style={waitingStyle}>Awaiting host command...</p>
         )}
