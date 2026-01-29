@@ -41,6 +41,44 @@ To enable GitHub Pages for this repository:
 2. Under "Build and deployment", select "GitHub Actions" as the source
 3. The site will be automatically deployed on the next push to `main`
 
+### Hetzner VPS Deployment
+
+The project can also be deployed to a Hetzner VPS using the GitHub Actions workflow (`.github/workflows/deploy-hetzner.yml`). This deploys the full application including the WebSocket game server.
+
+#### Prerequisites
+
+1. A Hetzner VPS with Docker installed
+2. SSH access to the VPS
+
+#### Setup
+
+1. Create a GitHub environment named `hetzner` in your repository settings (Settings → Environments → New environment)
+
+2. Add the following secrets to the `hetzner` environment:
+   - `HETZNER_HOST`: Your VPS IP address or hostname
+   - `HETZNER_USERNAME`: SSH username (e.g., `root`)
+   - `HETZNER_SSH_KEY`: Private SSH key for authentication
+   - `HETZNER_SSH_PORT`: SSH port (optional, defaults to 22)
+   - `CR_PAT`: GitHub Personal Access Token with `read:packages` scope for pulling container images
+
+3. Ensure Docker is installed on your Hetzner VPS:
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   ```
+
+4. The workflow will automatically:
+   - Build a Docker image
+   - Push it to GitHub Container Registry (ghcr.io)
+   - SSH into your VPS and deploy the container
+
+#### Ports
+
+The application exposes:
+- Port 8080: Frontend web server
+- Port 12346: WebSocket game server
+
+Make sure these ports are open in your VPS firewall.
+
 ## License
 
 MIT
