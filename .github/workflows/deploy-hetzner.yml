@@ -110,6 +110,12 @@ jobs:
 
                 # Fallback to index.html for SPA routing
                 try_files {path} /index.html
+
+                tls { 
+                  issuer acme {
+                    profile shortlived
+                  }
+                }
             }
             EOF
 
