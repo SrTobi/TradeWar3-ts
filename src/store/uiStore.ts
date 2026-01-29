@@ -21,6 +21,8 @@ interface UIStore {
   setPlayerName: (name: string) => void;
   isHost: boolean;
   setIsHost: (isHost: boolean) => void;
+  lastPlacedCoords: HexCoord | null;
+  setLastPlacedCoords: (coords: HexCoord | null) => void;
 }
 
 let particleId = 0;
@@ -76,4 +78,7 @@ export const useUIStore = create<UIStore>((set) => ({
     set((s) => ({
       battleParticles: s.battleParticles.filter((p) => p.id !== id),
     })),
+
+  lastPlacedCoords: null,
+  setLastPlacedCoords: (coords) => set({ lastPlacedCoords: coords }),
 }));

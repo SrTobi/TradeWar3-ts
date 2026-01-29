@@ -1,44 +1,20 @@
 import { useGameStore } from '@/store/gameStore';
-import { gameClient } from '@/network/client';
 import { Hex } from './Hex';
 import { Connections } from './Connections';
 import { Particles } from './Particles';
 import type { HexCoord } from '@/types/game';
-import { canPlaceUnits } from '@/game/battle';
-import { playPlaceUnit, playError } from '@/audio/sounds';
+import { usePlaceUnits } from '@/hooks/usePlaceUnits';
 
 const HEX_SIZE = 1;
 
 export function HexMap() {
   const gameState = useGameStore((s) => s.gameState);
-  const localFactionId = useGameStore((s) => s.local.factionId);
-  const spendMoney = useGameStore((s) => s.spendMoney);
+  const { placeUnits } = usePlaceUnits();
 
   if (!gameState) return null;
 
   const handleHexClick = (coords: HexCoord) => {
-    if (!localFactionId) return;
-    if (gameState.phase !== 'playing') return;
-
-    // Find the country at these coordinates
-    const country = gameState.countries.find(
-      (c) => c.coords.q === coords.q && c.coords.r === coords.r
-    );
-    if (!country) return;
-
-    // Check if we can place units here
-    if (!canPlaceUnits(country, gameState.countries, localFactionId)) {
-      playError();
-      return;
-    }
-
-    // Now try to spend money
-    if (spendMoney(gameState.unitCost)) {
-      playPlaceUnit();
-      gameClient.send({ type: 'placeUnits', coords });
-    } else {
-      playError();
-    }
+    placeUnits(coords);
   };
 
   return (
