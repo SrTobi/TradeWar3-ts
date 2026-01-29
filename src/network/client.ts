@@ -80,6 +80,10 @@ export class GameClient {
   }
 
   private startPingLoop(): void {
+    // Ensure we don't create multiple ping intervals
+    if (this.pingInterval) {
+      this.stopPingLoop();
+    }
     // Send initial ping immediately
     this.sendPing();
     // Then send ping every 5 seconds
