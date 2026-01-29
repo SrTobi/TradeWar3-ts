@@ -5,7 +5,7 @@ import { StockPanel } from './StockPanel';
 import { PlayerList } from './PlayerList';
 import { playVictory, playDefeat, playClick, playPlaceUnit, playError } from '@/audio/sounds';
 import { canPlaceUnits } from '@/game/battle';
-import { gameClient } from '@/network/client';
+import { unifiedGameClient } from '@/network/unifiedClient';
 
 const overlayStyle: React.CSSProperties = {
   position: 'absolute',
@@ -94,7 +94,7 @@ export function GameOverlay() {
 
     if (spendMoney(gameState.unitCost)) {
       playPlaceUnit();
-      gameClient.send({ type: 'placeUnits', coords: lastClickedHex });
+      unifiedGameClient.send({ type: 'placeUnits', coords: lastClickedHex });
     } else {
       playError();
     }
