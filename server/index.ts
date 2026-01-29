@@ -27,7 +27,6 @@ interface ConnectedClient {
 interface AiPlayer {
   id: string;
   name: string;
-  factionId: string;
   gameId: string;
   lastActionTime: number;
 }
@@ -409,14 +408,11 @@ class GameServer {
       ...Array.from(room.aiPlayers.values()).map((ai) => ai.name),
     ]);
     const availableNames = AI_NAMES.filter((name) => !usedNames.has(name));
-    const aiName = availableNames[0] || `AI Bot ${this.aiCounter}`;
-
-    const factionId = `faction${room.factionCounter++}`;
+    const aiName = availableNames.length > 0 ? availableNames[0] : `AI Bot ${this.aiCounter}`;
 
     const aiPlayer: AiPlayer = {
       id: aiId,
       name: aiName,
-      factionId,
       gameId: room.id,
       lastActionTime: 0,
     };
@@ -472,8 +468,12 @@ class GameServer {
     if (!room.gameState) return;
 
     for (const aiPlayer of room.aiPlayers.values()) {
+      // Scale AI action interval based on unit cost to make it fairer
+      // As unit cost increases, AI acts slower (simulating having to "earn" money)
+      const scaledInterval = AI_ACTION_INTERVAL * (room.gameState.unitCost / GAME.BASE_UNIT_COST);
+
       // Check if it's time for AI to take action
-      if (now - aiPlayer.lastActionTime < AI_ACTION_INTERVAL) continue;
+      if (now - aiPlayer.lastActionTime < scaledInterval) continue;
 
       // Find the AI's faction in the game
       const player: Player | undefined = room.gameState.players.find(
@@ -503,16 +503,25 @@ class GameServer {
         return myUnits === 0;
       });
 
+      const reinforcementLocations = validLocations.filter((country) => {
+        const myUnits = country.units[factionId] || 0;
+        return myUnits > 0;
+      });
+
       let targetCountry: Country;
 
       if (contestedLocations.length > 0) {
         // Reinforce contested territories
         targetCountry = contestedLocations[Math.floor(Math.random() * contestedLocations.length)];
       } else if (expansionLocations.length > 0 && Math.random() < 0.7) {
-        // Expand to new territories 70% of the time
+        // Expand to new territories 70% of the time when available
         targetCountry = expansionLocations[Math.floor(Math.random() * expansionLocations.length)];
-      } else {
+      } else if (reinforcementLocations.length > 0) {
         // Reinforce existing territories
+        targetCountry =
+          reinforcementLocations[Math.floor(Math.random() * reinforcementLocations.length)];
+      } else {
+        // Fallback to any valid location
         targetCountry = validLocations[Math.floor(Math.random() * validLocations.length)];
       }
 
@@ -549,6 +558,7 @@ class GameServer {
           id: client.playerId,
           name: client.playerName,
           factionId: `faction${factionIndex++}`,
+          isAi: false,
         });
       }
     }
@@ -559,6 +569,7 @@ class GameServer {
         id: aiPlayer.id,
         name: aiPlayer.name,
         factionId: `faction${factionIndex++}`,
+        isAi: true,
       });
     }
 

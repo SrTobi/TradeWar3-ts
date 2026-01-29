@@ -171,7 +171,6 @@ export function Lobby() {
             const color = FACTION_COLORS[player.factionId] || FACTION_COLORS.faction1;
             const isLocal = player.factionId === local.factionId;
             const isPlayerHost = index === 0;
-            const isAi = player.id.startsWith('ai');
             return (
               <div
                 key={player.id}
@@ -183,7 +182,7 @@ export function Lobby() {
               >
                 <div style={{ ...colorBoxStyle, background: color }} />
                 <span style={{ color: '#dde', fontWeight: 'bold', flex: 1 }}>{player.name}</span>
-                {isAi && <span style={{ color: '#aa88dd', fontSize: '12px' }}>AI</span>}
+                {player.isAi && <span style={{ color: '#aa88dd', fontSize: '12px' }}>AI</span>}
                 {isPlayerHost && <span style={{ color: '#ddaa44', fontSize: '12px' }}>HOST</span>}
                 {isLocal && (
                   <span style={{ color: '#88aaff', fontSize: '12px', marginLeft: '8px' }}>
