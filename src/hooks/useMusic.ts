@@ -7,13 +7,15 @@ export type MusicTrack = 'menu' | 'game' | 'battle' | 'victory' | 'danger';
 const MUSIC_VOLUME = 0.7;
 const MUSIC_UPDATE_INTERVAL = 2000; // ms
 
+const BASE_PATH = import.meta.env.BASE_URL;
+
 // Music file paths - place your audio files in public/music/
 const MUSIC_PATHS: Record<MusicTrack, string> = {
-  menu: '/music/menu.mp3',
-  game: '/music/game.mp3',
-  battle: '/music/battle.mp3',
-  victory: '/music/victory.mp3',
-  danger: '/music/danger.mp3',
+  menu: `${BASE_PATH}music/menu.mp3`,
+  game: `${BASE_PATH}music/game.mp3`,
+  battle: `${BASE_PATH}music/battle.mp3`,
+  victory: `${BASE_PATH}music/victory.mp3`,
+  danger: `${BASE_PATH}music/danger.mp3`,
 };
 
 class MusicManager {

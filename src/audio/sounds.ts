@@ -1,16 +1,18 @@
 // Sound effects using pre-generated MP3 files with preloading
 
+const BASE_PATH = import.meta.env.BASE_URL;
+
 const SOUNDS = {
-  click: '/sfx/click.mp3',
-  buy: '/sfx/buy.mp3',
-  sell: '/sfx/sell.mp3',
-  place: '/sfx/place.mp3',
-  battle: '/sfx/battle.mp3',
-  upgrade: '/sfx/upgrade.mp3',
-  victory: '/sfx/victory.mp3',
-  defeat: '/sfx/defeat.mp3',
-  gamestart: '/sfx/gamestart.mp3',
-  error: '/sfx/error.mp3',
+  click: `${BASE_PATH}sfx/click.mp3`,
+  buy: `${BASE_PATH}sfx/buy.mp3`,
+  sell: `${BASE_PATH}sfx/sell.mp3`,
+  place: `${BASE_PATH}sfx/place.mp3`,
+  battle: `${BASE_PATH}sfx/battle.mp3`,
+  upgrade: `${BASE_PATH}sfx/upgrade.mp3`,
+  victory: `${BASE_PATH}sfx/victory.mp3`,
+  defeat: `${BASE_PATH}sfx/defeat.mp3`,
+  gamestart: `${BASE_PATH}sfx/gamestart.mp3`,
+  error: `${BASE_PATH}sfx/error.mp3`,
 } as const;
 
 type SoundName = keyof typeof SOUNDS;
