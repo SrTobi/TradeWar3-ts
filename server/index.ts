@@ -1,82 +1,61 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import type { ServerMessage } from '../src/network/messages';
-import type { ClientMessage } from '../src/network/messages';
-import { GameEngine, GameClient, GameRoom, GameTransport } from '../src/game/engine';
+import type { GameState, Player, Country, Company, Faction, HexCoord } from '../src/types/game';
+import type { ClientMessage, ServerMessage, GameInfo } from '../src/network/messages';
+import { generateHexGrid } from '../src/game/hex';
+import { processBattle, calculateUnitCost, canPlaceUnits, checkWinner } from '../src/game/battle';
+import { createCompanies, updateStockPrice } from '../src/game/stock';
 import { GAME } from '../src/game/constants';
 
-interface ConnectedClient extends GameClient {
+const AI_NAMES = [
+  'Admiral Zex',
+  'Commander Nova',
+  'Captain Orion',
+  'General Nebula',
+  'Marshal Cosmos',
+  'Warlord Pulsar',
+];
+
+const AI_ACTION_INTERVAL = 800; // ms between AI actions
+
+interface ConnectedClient {
   ws: WebSocket;
+  playerId: string;
+  playerName: string | null;
+  currentGameId: string | null;
 }
 
-/**
- * WebSocket Transport - implements GameTransport for the WebSocket server
- */
-class WebSocketTransport implements GameTransport {
-  private clients: Map<string, ConnectedClient>;
+interface AiPlayer {
+  id: string;
+  name: string;
+  gameId: string;
+  lastActionTime: number;
+}
 
-  constructor(clients: Map<string, ConnectedClient>) {
-    this.clients = clients;
-  }
-
-  send(playerId: string, msg: ServerMessage): void {
-    const client = this.clients.get(playerId);
-    if (client?.ws.readyState === WebSocket.OPEN) {
-      client.ws.send(JSON.stringify(msg));
-    }
-  }
-
-  broadcast(msg: ServerMessage): void {
-    const data = JSON.stringify(msg);
-    for (const client of this.clients.values()) {
-      if (client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(data);
-      }
-    }
-  }
-
-  broadcastToGame(room: GameRoom, msg: ServerMessage): void {
-    const data = JSON.stringify(msg);
-    for (const playerId of room.clients) {
-      const client = this.clients.get(playerId);
-      if (client?.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(data);
-      }
-    }
-  }
-
-  getClient(playerId: string): GameClient | undefined {
-    return this.clients.get(playerId);
-  }
+interface GameRoom {
+  id: string;
+  hostId: string;
+  gameState: GameState | null;
+  clients: Set<string>; // playerIds
+  aiPlayers: Map<string, AiPlayer>; // aiId -> AiPlayer
+  factionCounter: number;
+  gameLoop: NodeJS.Timeout | null;
 }
 
 class GameServer {
   private wss: WebSocketServer;
-  private clients: Map<string, ConnectedClient> = new Map();
-  private wsToPlayer: Map<WebSocket, string> = new Map();
+  private clients: Map<string, ConnectedClient> = new Map(); // playerId -> client
+  private wsToPlayer: Map<WebSocket, string> = new Map(); // ws -> playerId
   private games: Map<string, GameRoom> = new Map();
-  private engine: GameEngine;
-  private transport: WebSocketTransport;
+  private playerCounter = 0;
+  private gameCounter = 0;
+  private aiCounter = 0;
 
   constructor(port: number) {
     this.wss = new WebSocketServer({ port });
     console.log(`Game server started on port ${port}`);
 
-    // Create transport and engine
-    this.transport = new WebSocketTransport(this.clients);
-    this.engine = new GameEngine(
-      this.transport,
-      this.clients as Map<string, GameClient>,
-      this.games,
-      { playerCounter: 0, gameCounter: 0, aiCounter: 0 }
-    );
-
-    // Set up game list broadcast callback
-    this.engine.setOnGameListChanged(() => {
-      this.broadcastGameList();
-    });
-
     this.wss.on('connection', (ws) => {
-      const playerId = this.engine.getNextPlayerId();
+      const playerId = `player${++this.playerCounter}`;
       console.log(`Client connected: ${playerId}`);
 
       const client: ConnectedClient = {
@@ -90,23 +69,546 @@ class GameServer {
       this.wsToPlayer.set(ws, playerId);
 
       // Send welcome with player ID
-      this.transport.send(playerId, { type: 'welcome', playerId });
+      this.send(ws, { type: 'welcome', playerId });
 
       ws.on('message', (data) => {
         const msg = JSON.parse(data.toString()) as ClientMessage;
-        this.engine.handleMessage(playerId, msg);
+        this.handleMessage(playerId, msg);
       });
 
       ws.on('close', () => {
         console.log(`Client disconnected: ${playerId}`);
-        this.engine.handleDisconnect(playerId);
-        this.wsToPlayer.delete(ws);
+        this.handleDisconnect(playerId);
       });
     });
   }
 
+  private handleMessage(playerId: string, msg: ClientMessage): void {
+    const client = this.clients.get(playerId);
+    if (!client) return;
+
+    switch (msg.type) {
+      case 'setName':
+        client.playerName = msg.playerName;
+        break;
+      case 'listGames':
+        this.handleListGames(client);
+        break;
+      case 'createGame':
+        this.handleCreateGame(client);
+        break;
+      case 'joinGame':
+        this.handleJoinGame(client, msg.gameId);
+        break;
+      case 'leaveGame':
+        this.handleLeaveGame(client);
+        break;
+      case 'startGame':
+        this.handleStartGame(client);
+        break;
+      case 'placeUnits':
+        this.handlePlaceUnits(client, msg.coords);
+        break;
+      case 'ping':
+        this.send(client.ws, { type: 'pong', timestamp: msg.timestamp });
+        break;
+      case 'addAi':
+        this.handleAddAi(client);
+        break;
+    }
+  }
+
+  private handleDisconnect(playerId: string): void {
+    const client = this.clients.get(playerId);
+    if (client?.currentGameId) {
+      this.handleLeaveGame(client);
+    }
+    this.wsToPlayer.delete(client?.ws as WebSocket);
+    this.clients.delete(playerId);
+  }
+
+  private handleListGames(client: ConnectedClient): void {
+    const games: GameInfo[] = [];
+    for (const [id, room] of this.games) {
+      const host = this.clients.get(room.hostId);
+      const players = this.getGamePlayers(room);
+      games.push({
+        id,
+        hostName: host?.playerName ?? 'Unknown',
+        playerCount: players.length,
+        maxPlayers: 6,
+        phase: room.gameState?.phase ?? 'lobby',
+        players: players.map((p) => p.name),
+      });
+    }
+    this.send(client.ws, { type: 'gameList', games });
+  }
+
+  private handleCreateGame(client: ConnectedClient): void {
+    if (!client.playerName) {
+      this.send(client.ws, { type: 'error', message: 'Set your name first' });
+      return;
+    }
+
+    if (client.currentGameId) {
+      this.handleLeaveGame(client);
+    }
+
+    const gameId = `game${++this.gameCounter}`;
+    const room: GameRoom = {
+      id: gameId,
+      hostId: client.playerId,
+      gameState: null,
+      clients: new Set([client.playerId]),
+      aiPlayers: new Map(),
+      factionCounter: 0,
+      gameLoop: null,
+    };
+
+    this.games.set(gameId, room);
+    client.currentGameId = gameId;
+
+    const factionId = `faction${room.factionCounter++}`;
+    this.send(client.ws, { type: 'joinedGame', gameId, factionId });
+    this.broadcastLobbyUpdate(room);
+    this.broadcastGameList();
+
+    console.log(`Game ${gameId} created by ${client.playerName}`);
+  }
+
+  private handleJoinGame(client: ConnectedClient, gameId: string): void {
+    if (!client.playerName) {
+      this.send(client.ws, { type: 'error', message: 'Set your name first' });
+      return;
+    }
+
+    const room = this.games.get(gameId);
+    if (!room) {
+      this.send(client.ws, { type: 'error', message: 'Game not found' });
+      return;
+    }
+
+    if (room.gameState?.phase === 'playing') {
+      this.send(client.ws, { type: 'error', message: 'Game already in progress' });
+      return;
+    }
+
+    if (client.currentGameId) {
+      this.handleLeaveGame(client);
+    }
+
+    room.clients.add(client.playerId);
+    client.currentGameId = gameId;
+
+    const factionId = `faction${room.factionCounter++}`;
+    this.send(client.ws, { type: 'joinedGame', gameId, factionId });
+    this.broadcastLobbyUpdate(room);
+    this.broadcastGameList();
+
+    console.log(`${client.playerName} joined game ${gameId}`);
+  }
+
+  private handleLeaveGame(client: ConnectedClient): void {
+    if (!client.currentGameId) return;
+
+    const room = this.games.get(client.currentGameId);
+    if (!room) {
+      client.currentGameId = null;
+      return;
+    }
+
+    room.clients.delete(client.playerId);
+    this.send(client.ws, { type: 'leftGame' });
+
+    // If game is in progress, remove player from game and neutralize their countries
+    if (room.gameState && room.gameState.phase === 'playing') {
+      const playerEntry = room.gameState.players.find((p) => p.id === client.playerId);
+      if (playerEntry) {
+        const factionId = playerEntry.factionId;
+
+        for (let i = 0; i < room.gameState.countries.length; i++) {
+          const country = room.gameState.countries[i];
+          const units = country.units;
+          const remainingUnits = units[factionId] || 0;
+          if (remainingUnits > 0) {
+            // Remove any lingering units of the departed faction and add them to neutral
+            delete units[factionId];
+            units.neutral = (units.neutral || 0) + remainingUnits;
+          }
+        }
+
+        // Recalculate unit cost and broadcast updated state
+        room.gameState.unitCost = calculateUnitCost(room.gameState.countries);
+      }
+    }
+
+    // If room is empty or host left, clean up
+    if (room.clients.size === 0 || room.hostId === client.playerId) {
+      this.destroyGame(room);
+    } else {
+      this.broadcastLobbyUpdate(room);
+    }
+
+    client.currentGameId = null;
+    this.broadcastGameList();
+
+    console.log(`${client.playerName} left game ${room.id}`);
+  }
+
+  private destroyGame(room: GameRoom): void {
+    if (room.gameLoop) {
+      clearInterval(room.gameLoop);
+    }
+
+    // Notify remaining clients
+    for (const playerId of room.clients) {
+      const c = this.clients.get(playerId);
+      if (c) {
+        c.currentGameId = null;
+        this.send(c.ws, { type: 'leftGame' });
+      }
+    }
+
+    this.games.delete(room.id);
+    console.log(`Game ${room.id} destroyed`);
+  }
+
+  private handleStartGame(client: ConnectedClient): void {
+    if (!client.currentGameId) return;
+
+    const room = this.games.get(client.currentGameId);
+    if (!room) return;
+
+    // Only host can start
+    if (room.hostId !== client.playerId) {
+      this.send(client.ws, { type: 'error', message: 'Only host can start the game' });
+      return;
+    }
+
+    if (room.gameState?.phase === 'playing') return;
+
+    const players = this.getGamePlayers(room);
+    if (players.length === 0) return;
+
+    const factions: Faction[] = [
+      { id: 'neutral', name: 'Neutral' },
+      ...players.map((p) => ({ id: p.factionId, name: p.name })),
+    ];
+
+    const startingPositions: HexCoord[] = [
+      { q: GAME.MAP_RADIUS, r: 0 },
+      { q: -GAME.MAP_RADIUS, r: 0 },
+      { q: 0, r: GAME.MAP_RADIUS },
+      { q: 0, r: -GAME.MAP_RADIUS },
+      { q: GAME.MAP_RADIUS, r: -GAME.MAP_RADIUS },
+      { q: -GAME.MAP_RADIUS, r: GAME.MAP_RADIUS },
+    ];
+
+    const hexCoords = generateHexGrid(GAME.MAP_RADIUS);
+    const countries: Country[] = hexCoords.map((coords) => {
+      const playerIndex = startingPositions.findIndex(
+        (pos) => pos.q === coords.q && pos.r === coords.r
+      );
+
+      if (playerIndex !== -1 && playerIndex < players.length) {
+        return {
+          coords,
+          units: { [players[playerIndex].factionId]: 10 },
+          nextBattleTime: Date.now() + Math.random() * GAME.BATTLE_MAX_INTERVAL,
+        };
+      }
+
+      return {
+        coords,
+        units: {
+          neutral:
+            GAME.NEUTRAL_UNITS_MIN +
+            Math.floor(Math.random() * (GAME.NEUTRAL_UNITS_MAX - GAME.NEUTRAL_UNITS_MIN)),
+        },
+        nextBattleTime: Date.now() + Math.random() * GAME.BATTLE_MAX_INTERVAL,
+      };
+    });
+
+    const companies = createCompanies(GAME.STOCK_COUNT);
+
+    room.gameState = {
+      phase: 'playing',
+      countries,
+      companies,
+      factions,
+      players,
+      unitCost: calculateUnitCost(countries),
+      winner: null,
+    };
+
+    this.broadcastToGame(room, { type: 'gameStarted' });
+    this.startGameLoop(room);
+    this.broadcastGameList();
+
+    console.log(`Game ${room.id} started with ${players.length} players`);
+  }
+
+  private handlePlaceUnits(client: ConnectedClient, coords: HexCoord): void {
+    if (!client.currentGameId) return;
+
+    const room = this.games.get(client.currentGameId);
+    if (!room?.gameState || room.gameState.phase !== 'playing') return;
+
+    const player = this.getGamePlayers(room).find((p) => p.id === client.playerId);
+    if (!player) return;
+
+    const factionId = player.factionId;
+    const countryIndex = room.gameState.countries.findIndex(
+      (c: Country) => c.coords.q === coords.q && c.coords.r === coords.r
+    );
+
+    if (countryIndex === -1) return;
+
+    const country = room.gameState.countries[countryIndex];
+    if (!canPlaceUnits(country, room.gameState.countries, factionId)) return;
+
+    const newUnits = { ...country.units };
+    newUnits[factionId] = (newUnits[factionId] || 0) + 1;
+
+    // Reset battle timer when placing units (grace period)
+    room.gameState.countries[countryIndex] = {
+      ...country,
+      units: newUnits,
+      nextBattleTime: Date.now() + GAME.PLACEMENT_GRACE_PERIOD,
+    };
+
+    room.gameState.unitCost = calculateUnitCost(room.gameState.countries);
+  }
+
+  private handleAddAi(client: ConnectedClient): void {
+    if (!client.currentGameId) return;
+
+    const room = this.games.get(client.currentGameId);
+    if (!room) return;
+
+    // Only host can add AI
+    if (room.hostId !== client.playerId) {
+      this.send(client.ws, { type: 'error', message: 'Only host can add AI players' });
+      return;
+    }
+
+    // Cannot add AI after game started
+    if (room.gameState?.phase === 'playing') {
+      this.send(client.ws, { type: 'error', message: 'Cannot add AI during game' });
+      return;
+    }
+
+    // Max 6 total players
+    const totalPlayers = room.clients.size + room.aiPlayers.size;
+    if (totalPlayers >= 6) {
+      this.send(client.ws, { type: 'error', message: 'Game is full' });
+      return;
+    }
+
+    const aiId = `ai${++this.aiCounter}`;
+    const usedNames = new Set([
+      ...Array.from(room.clients).map((id) => this.clients.get(id)?.playerName),
+      ...Array.from(room.aiPlayers.values()).map((ai) => ai.name),
+    ]);
+    const availableNames = AI_NAMES.filter((name) => !usedNames.has(name));
+    const aiName = availableNames.length > 0 ? availableNames[0] : `AI Bot ${this.aiCounter}`;
+
+    const aiPlayer: AiPlayer = {
+      id: aiId,
+      name: aiName,
+      gameId: room.id,
+      lastActionTime: 0,
+    };
+
+    room.aiPlayers.set(aiId, aiPlayer);
+    this.broadcastLobbyUpdate(room);
+    this.broadcastGameList();
+
+    console.log(`AI player ${aiName} added to game ${room.id}`);
+  }
+
+  private startGameLoop(room: GameRoom): void {
+    room.gameLoop = setInterval(() => {
+      if (!room.gameState || room.gameState.phase !== 'playing') return;
+
+      const now = Date.now();
+
+      // Process AI actions
+      this.processAiActions(room, now);
+
+      room.gameState.countries = room.gameState.countries.map((country: Country) => {
+        if (now >= country.nextBattleTime) {
+          return processBattle(country, room.gameState!.countries, now);
+        }
+        return country;
+      });
+
+      room.gameState.companies = room.gameState.companies.map((company: Company) => {
+        if (now >= company.nextUpdateTime) {
+          return updateStockPrice(company, now);
+        }
+        return company;
+      });
+
+      room.gameState.unitCost = calculateUnitCost(room.gameState.countries);
+
+      const winner = checkWinner(room.gameState.countries, room.gameState.factions);
+      if (winner) {
+        room.gameState.winner = winner;
+        room.gameState.phase = 'ended';
+        if (room.gameLoop) {
+          clearInterval(room.gameLoop);
+          room.gameLoop = null;
+        }
+        this.broadcastGameList();
+      }
+
+      this.broadcastToGame(room, { type: 'gameState', state: room.gameState });
+    }, GAME.SERVER_TICK_RATE);
+  }
+
+  private processAiActions(room: GameRoom, now: number): void {
+    if (!room.gameState) return;
+
+    for (const aiPlayer of room.aiPlayers.values()) {
+      // Scale AI action interval based on unit cost to make it fairer
+      // As unit cost increases, AI acts slower (simulating having to "earn" money)
+      const scaledInterval = AI_ACTION_INTERVAL * (room.gameState.unitCost / GAME.BASE_UNIT_COST);
+
+      // Check if it's time for AI to take action
+      if (now - aiPlayer.lastActionTime < scaledInterval) continue;
+
+      // Find the AI's faction in the game
+      const player: Player | undefined = room.gameState.players.find(
+        (p: Player) => p.id === aiPlayer.id
+      );
+      if (!player) continue;
+
+      const factionId = player.factionId;
+
+      // Find valid placement locations for AI
+      const validLocations = room.gameState.countries.filter((country) =>
+        canPlaceUnits(country, room.gameState!.countries, factionId)
+      );
+
+      if (validLocations.length === 0) continue;
+
+      // Strategy: Prioritize contested territories, then expansion, then reinforcement
+      const contestedLocations = validLocations.filter((country) => {
+        const factionIds = Object.keys(country.units).filter(
+          (id) => country.units[id] > 0 && id !== 'neutral'
+        );
+        return factionIds.length > 1;
+      });
+
+      const expansionLocations = validLocations.filter((country) => {
+        const myUnits = country.units[factionId] || 0;
+        return myUnits === 0;
+      });
+
+      const reinforcementLocations = validLocations.filter((country) => {
+        const myUnits = country.units[factionId] || 0;
+        return myUnits > 0;
+      });
+
+      let targetCountry: Country;
+
+      if (contestedLocations.length > 0) {
+        // Reinforce contested territories
+        targetCountry = contestedLocations[Math.floor(Math.random() * contestedLocations.length)];
+      } else if (expansionLocations.length > 0 && Math.random() < 0.7) {
+        // Expand to new territories 70% of the time when available
+        targetCountry = expansionLocations[Math.floor(Math.random() * expansionLocations.length)];
+      } else if (reinforcementLocations.length > 0) {
+        // Reinforce existing territories
+        targetCountry =
+          reinforcementLocations[Math.floor(Math.random() * reinforcementLocations.length)];
+      } else {
+        // Fallback to any valid location
+        targetCountry = validLocations[Math.floor(Math.random() * validLocations.length)];
+      }
+
+      // Place units
+      const countryIndex = room.gameState.countries.findIndex(
+        (c) => c.coords.q === targetCountry.coords.q && c.coords.r === targetCountry.coords.r
+      );
+
+      if (countryIndex !== -1) {
+        const country = room.gameState.countries[countryIndex];
+        const newUnits = { ...country.units };
+        newUnits[factionId] = (newUnits[factionId] || 0) + 1;
+
+        room.gameState.countries[countryIndex] = {
+          ...country,
+          units: newUnits,
+          nextBattleTime: Date.now() + GAME.PLACEMENT_GRACE_PERIOD,
+        };
+
+        room.gameState.unitCost = calculateUnitCost(room.gameState.countries);
+        aiPlayer.lastActionTime = now;
+      }
+    }
+  }
+
+  private getGamePlayers(room: GameRoom): Player[] {
+    const players: Player[] = [];
+    let factionIndex = 0;
+
+    for (const playerId of room.clients) {
+      const client = this.clients.get(playerId);
+      if (client?.playerName) {
+        players.push({
+          id: client.playerId,
+          name: client.playerName,
+          factionId: `faction${factionIndex++}`,
+          isAi: false,
+        });
+      }
+    }
+
+    // Add AI players
+    for (const aiPlayer of room.aiPlayers.values()) {
+      players.push({
+        id: aiPlayer.id,
+        name: aiPlayer.name,
+        factionId: `faction${factionIndex++}`,
+        isAi: true,
+      });
+    }
+
+    return players;
+  }
+
+  private broadcastLobbyUpdate(room: GameRoom): void {
+    const players = this.getGamePlayers(room);
+    this.broadcastToGame(room, { type: 'lobbyUpdate', players });
+  }
+
+  private broadcastToGame(room: GameRoom, msg: ServerMessage): void {
+    const data = JSON.stringify(msg);
+    for (const playerId of room.clients) {
+      const client = this.clients.get(playerId);
+      if (client?.ws.readyState === WebSocket.OPEN) {
+        client.ws.send(data);
+      }
+    }
+  }
+
   private broadcastGameList(): void {
-    const games = this.engine.getGameList();
+    const games: GameInfo[] = [];
+    for (const [id, room] of this.games) {
+      const host = this.clients.get(room.hostId);
+      const players = this.getGamePlayers(room);
+      games.push({
+        id,
+        hostName: host?.playerName ?? 'Unknown',
+        playerCount: players.length,
+        maxPlayers: 6,
+        phase: room.gameState?.phase ?? 'lobby',
+        players: players.map((p) => p.name),
+      });
+    }
+
     const msg: ServerMessage = { type: 'gameList', games };
     const data = JSON.stringify(msg);
 
@@ -115,6 +617,12 @@ class GameServer {
       if (!client.currentGameId && client.ws.readyState === WebSocket.OPEN) {
         client.ws.send(data);
       }
+    }
+  }
+
+  private send(ws: WebSocket, msg: ServerMessage): void {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg));
     }
   }
 }

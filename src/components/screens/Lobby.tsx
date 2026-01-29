@@ -2,7 +2,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera } from '@react-three/drei';
 import { useGameStore } from '@/store/gameStore';
 import { useUIStore } from '@/store/uiStore';
-import { unifiedGameClient } from '@/network/unifiedClient';
+import { gameClient } from '@/network/client';
 import { FACTION_COLORS, getConnectionStatusColor } from '@/types/game';
 import { Starfield } from '@/components/three/Starfield';
 import { playClick, playGameStart } from '@/audio/sounds';
@@ -135,18 +135,18 @@ export function Lobby() {
 
   const handleStartGame = () => {
     playGameStart();
-    unifiedGameClient.send({ type: 'startGame' });
+    gameClient.send({ type: 'startGame' });
   };
 
   const handleLeave = () => {
     playClick();
-    unifiedGameClient.send({ type: 'leaveGame' });
+    gameClient.send({ type: 'leaveGame' });
     setScreen('menu');
   };
 
   const handleAddAi = () => {
     playClick();
-    unifiedGameClient.send({ type: 'addAi' });
+    gameClient.send({ type: 'addAi' });
   };
 
   const players = gameState?.players || [];
