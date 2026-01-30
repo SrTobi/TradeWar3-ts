@@ -16,6 +16,7 @@ export default defineConfig([
       '**/*.min.js',
       '**/*.bundle.js',
       'eslint.config.js',
+      'external/**',
     ],
   },
   {
