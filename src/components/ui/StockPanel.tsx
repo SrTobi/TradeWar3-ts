@@ -9,24 +9,25 @@ const panelStyle: React.CSSProperties = {
   position: 'absolute',
   top: 0,
   left: 0,
-  width: '520px',
+  width: 'min(100vw, 520px)',
   height: '100%',
   background: 'rgba(20, 26, 38, 0.92)',
   borderRight: '2px solid rgba(77, 102, 128, 0.5)',
-  padding: '16px',
+  padding: 'clamp(8px, 2vw, 16px)',
   display: 'flex',
   flexDirection: 'column',
   fontFamily: "'Segoe UI', system-ui, sans-serif",
+  overflowX: 'hidden',
 };
 
 const titleStyle: React.CSSProperties = {
-  fontSize: '22px',
+  fontSize: 'clamp(14px, 4vw, 22px)',
   fontWeight: 'bold',
   color: '#b3cce6',
   textAlign: 'center',
-  marginBottom: '12px',
+  marginBottom: 'clamp(6px, 2vw, 12px)',
   textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-  letterSpacing: '2px',
+  letterSpacing: 'clamp(1px, 0.5vw, 2px)',
 };
 
 const topRowStyle: React.CSSProperties = {
@@ -43,18 +44,18 @@ const balanceStyle: React.CSSProperties = {
 };
 
 const balanceValueStyle: React.CSSProperties = {
-  fontSize: '20px',
+  fontSize: 'clamp(14px, 4vw, 20px)',
   fontWeight: 'bold',
   color: '#66ff99',
 };
 
 const balanceLabelStyle: React.CSSProperties = {
-  fontSize: '14px',
+  fontSize: 'clamp(10px, 3vw, 14px)',
   color: '#99ccb3',
 };
 
 const unitCostStyle: React.CSSProperties = {
-  fontSize: '15px',
+  fontSize: 'clamp(11px, 3vw, 15px)',
   fontWeight: 'bold',
   color: '#ffcc80',
 };
@@ -67,10 +68,10 @@ const separatorStyle: React.CSSProperties = {
 
 const headerRowStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr 60px 80px 30px 50px 60px 60px',
-  gap: '6px',
+  gridTemplateColumns: 'minmax(60px, 1fr) minmax(40px, 60px) minmax(50px, 80px) 20px minmax(30px, 50px) minmax(40px, 60px) minmax(40px, 60px)',
+  gap: 'clamp(2px, 1vw, 6px)',
   padding: '0 4px 8px 4px',
-  fontSize: '11px',
+  fontSize: 'clamp(8px, 2vw, 11px)',
   color: '#99aabb',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
@@ -86,10 +87,10 @@ const companyListStyle: React.CSSProperties = {
 
 const companyRowStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr 60px 80px 30px 50px 60px 60px',
-  gap: '6px',
+  gridTemplateColumns: 'minmax(60px, 1fr) minmax(40px, 60px) minmax(50px, 80px) 20px minmax(30px, 50px) minmax(40px, 60px) minmax(40px, 60px)',
+  gap: 'clamp(2px, 1vw, 6px)',
   alignItems: 'center',
-  padding: '6px 10px',
+  padding: 'clamp(4px, 1vw, 6px) clamp(4px, 1.5vw, 10px)',
   background: 'rgba(0, 0, 0, 0.25)',
   borderRadius: '4px',
   border: '1px solid rgba(77, 102, 128, 0.2)',
@@ -98,35 +99,38 @@ const companyRowStyle: React.CSSProperties = {
 const companyNameStyle: React.CSSProperties = {
   fontWeight: 'bold',
   color: '#e6eeff',
-  fontSize: '13px',
+  fontSize: 'clamp(10px, 2.5vw, 13px)',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 };
 
 const priceStyle: React.CSSProperties = {
   textAlign: 'right',
   fontWeight: 'bold',
-  fontSize: '13px',
+  fontSize: 'clamp(10px, 2.5vw, 13px)',
 };
 
 const changeStyle: React.CSSProperties = {
   textAlign: 'center',
   fontWeight: 'bold',
-  fontSize: '14px',
+  fontSize: 'clamp(10px, 2.5vw, 14px)',
 };
 
 const holdingsStyle: React.CSSProperties = {
   textAlign: 'center',
   fontWeight: 'bold',
-  fontSize: '13px',
+  fontSize: 'clamp(10px, 2.5vw, 13px)',
 };
 
 const buttonStyle: React.CSSProperties = {
-  padding: '5px 4px',
+  padding: 'clamp(3px, 1vw, 5px) clamp(2px, 0.5vw, 4px)',
   background: 'rgba(51, 64, 89, 1)',
   border: '1px solid rgba(85, 119, 153, 0.5)',
   color: '#fff',
   cursor: 'pointer',
   borderRadius: '3px',
-  fontSize: '10px',
+  fontSize: 'clamp(8px, 2vw, 10px)',
   fontWeight: 'bold',
   transition: 'all 0.15s',
 };
@@ -148,7 +152,7 @@ const bottomRowStyle: React.CSSProperties = {
 };
 
 const bulkLabelStyle: React.CSSProperties = {
-  fontSize: '14px',
+  fontSize: 'clamp(10px, 2.5vw, 14px)',
   color: '#ccd8ff',
 };
 
@@ -158,13 +162,13 @@ const bulkValueStyle: React.CSSProperties = {
 };
 
 const upgradeButtonStyle: React.CSSProperties = {
-  padding: '10px 16px',
+  padding: 'clamp(6px, 1.5vw, 10px) clamp(8px, 2vw, 16px)',
   background: 'rgba(51, 85, 51, 1)',
   border: '1px solid rgba(85, 153, 85, 0.5)',
   color: '#fff',
   cursor: 'pointer',
   borderRadius: '4px',
-  fontSize: '12px',
+  fontSize: 'clamp(9px, 2vw, 12px)',
   fontWeight: 'bold',
   transition: 'all 0.15s',
 };
@@ -201,7 +205,10 @@ function Sparkline({ history }: { history: number[] }) {
   const color = trend >= 0 ? '#4f8' : '#f66';
 
   return (
-    <svg width={width} height={height} style={{ display: 'block' }}>
+    <svg 
+      viewBox={`0 0 ${width} ${height}`} 
+      style={{ display: 'block', width: '100%', height: 'auto', minWidth: '40px', maxWidth: '80px' }}
+    >
       <polyline
         points={points}
         fill="none"
