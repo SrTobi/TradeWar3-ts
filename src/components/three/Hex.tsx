@@ -11,6 +11,7 @@ import { Text } from '@react-three/drei';
 interface HexProps {
   country: Country;
   defenseBonus: number;
+  localFactionId: string | null;
   size: number;
   onClick: () => void;
 }
@@ -56,7 +57,7 @@ function createRoundedRectShape(width: number, height: number, radius: number): 
   return shape;
 }
 
-export function Hex({ country, defenseBonus, size, onClick }: HexProps) {
+export function Hex({ country, defenseBonus, localFactionId, size, onClick }: HexProps) {
   const groupRef = useRef<THREE.Group>(null);
   const glowRingsRef = useRef<THREE.Group>(null);
   const innerHighlightRef = useRef<THREE.LineLoop>(null);
@@ -287,21 +288,23 @@ export function Hex({ country, defenseBonus, size, onClick }: HexProps) {
         </group>
       )}
 
-      {/* Defense bonus badge - shows territorial advantage from controlled neighbors */}
-      {defenseBonus > 0 && (
+      {/* Defense bonus badge - shows territorial advantage for local player in contested territories */}
+      {defenseBonus > 0 && localFactionId && (
         <group position={[0, -size * 0.32, 0.1]}>
           {/* Badge background shadow */}
           <mesh geometry={defenseBadgeGeometry} position={[size * 0.015, -size * 0.015, -0.01]}>
             <meshBasicMaterial color="#000000" transparent opacity={0.4} />
           </mesh>
-          {/* Badge background - darker color to indicate defense */}
+          {/* Badge background - use local player's faction color */}
           <mesh geometry={defenseBadgeGeometry}>
-            <meshBasicMaterial color={darken(baseColor, 0.2)} />
+            <meshBasicMaterial
+              color={darken(new THREE.Color(getFactionColor(localFactionId)), 0.2)}
+            />
           </mesh>
           {/* Badge border highlight */}
           <mesh geometry={defenseBadgeGeometry} position={[0, 0, 0.005]}>
             <meshBasicMaterial
-              color={lighten(baseColor, 0.1)}
+              color={lighten(new THREE.Color(getFactionColor(localFactionId)), 0.1)}
               transparent
               opacity={0.5}
               wireframe
