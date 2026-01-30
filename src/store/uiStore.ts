@@ -9,6 +9,11 @@ interface BattleParticle {
   startTime: number;
 }
 
+interface VolumeSettings {
+  musicVolume: number; // 0.0 - 1.0
+  soundVolume: number; // 0.0 - 1.0
+}
+
 interface UIStore {
   screen: Screen;
   setScreen: (screen: Screen) => void;
@@ -25,6 +30,9 @@ interface UIStore {
   setIsHost: (isHost: boolean) => void;
   pingLatency: number | null;
   setPingLatency: (latency: number | null) => void;
+  volumeSettings: VolumeSettings;
+  setMusicVolume: (volume: number) => void;
+  setSoundVolume: (volume: number) => void;
 }
 
 let particleId = 0;
@@ -42,6 +50,39 @@ function loadPlayerName(): string {
 function savePlayerName(name: string): void {
   try {
     localStorage.setItem('tradewar-commander-name', name);
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
+const DEFAULT_VOLUME_SETTINGS: VolumeSettings = {
+  musicVolume: 0.7,
+  soundVolume: 0.5,
+};
+
+// Load volume settings from localStorage
+function loadVolumeSettings(): VolumeSettings {
+  try {
+    const stored = localStorage.getItem('tradewar-volume-settings');
+    if (stored) {
+      const parsed = JSON.parse(stored) as Partial<VolumeSettings>;
+      return {
+        musicVolume:
+          typeof parsed.musicVolume === 'number' ? parsed.musicVolume : DEFAULT_VOLUME_SETTINGS.musicVolume,
+        soundVolume:
+          typeof parsed.soundVolume === 'number' ? parsed.soundVolume : DEFAULT_VOLUME_SETTINGS.soundVolume,
+      };
+    }
+  } catch {
+    // Ignore errors
+  }
+  return DEFAULT_VOLUME_SETTINGS;
+}
+
+// Save volume settings to localStorage
+function saveVolumeSettings(settings: VolumeSettings): void {
+  try {
+    localStorage.setItem('tradewar-volume-settings', JSON.stringify(settings));
   } catch {
     // Ignore localStorage errors
   }
@@ -86,4 +127,20 @@ export const useUIStore = create<UIStore>((set) => ({
     set((s) => ({
       battleParticles: s.battleParticles.filter((p) => p.id !== id),
     })),
+
+  volumeSettings: loadVolumeSettings(),
+  setMusicVolume: (volume) =>
+    set((s) => {
+      const clampedVolume = Math.max(0, Math.min(1, volume));
+      const newSettings = { ...s.volumeSettings, musicVolume: clampedVolume };
+      saveVolumeSettings(newSettings);
+      return { volumeSettings: newSettings };
+    }),
+  setSoundVolume: (volume) =>
+    set((s) => {
+      const clampedVolume = Math.max(0, Math.min(1, volume));
+      const newSettings = { ...s.volumeSettings, soundVolume: clampedVolume };
+      saveVolumeSettings(newSettings);
+      return { volumeSettings: newSettings };
+    }),
 }));
