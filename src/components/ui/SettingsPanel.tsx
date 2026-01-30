@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useUIStore } from '@/store/uiStore';
+import { observableValue } from '@vscode/observables';
+import { ViewModel, viewWithModel, prop } from '@vscode/observables-react';
+import { uiStore } from '@/store/uiStore';
 import { setMusicVolume } from '@/hooks/useMusic';
 import { setSoundVolume, playClick } from '@/audio/sounds';
 
@@ -73,68 +74,61 @@ const closeButtonStyle: React.CSSProperties = {
   letterSpacing: '1px',
 };
 
-interface SettingsPanelProps {
-  onClose: () => void;
-}
+class SettingsPanelModel extends ViewModel({ onClose: prop.const<() => void>() }) {
+  private readonly initialVolumeSettings = uiStore.volumeSettings.get();
 
-export function SettingsPanel({ onClose }: SettingsPanelProps) {
-  const volumeSettings = useUIStore((s) => s.volumeSettings);
-  const setMusicVolumeStore = useUIStore((s) => s.setMusicVolume);
-  const setSoundVolumeStore = useUIStore((s) => s.setSoundVolume);
+  public readonly musicVol = observableValue(this, this.initialVolumeSettings.musicVolume);
+  public readonly soundVol = observableValue(this, this.initialVolumeSettings.soundVolume);
 
-  // Local state for smooth slider interaction
-  const [musicVol, setMusicVol] = useState(volumeSettings.musicVolume);
-  const [soundVol, setSoundVol] = useState(volumeSettings.soundVolume);
+  constructor(props: { onClose: () => void }) {
+    super(props);
 
-  // Sync local state if volumeSettings changes externally
-  useEffect(() => {
-    setMusicVol(volumeSettings.musicVolume);
-    setSoundVol(volumeSettings.soundVolume);
-  }, [volumeSettings.musicVolume, volumeSettings.soundVolume]);
-
-  const handleClose = useCallback(() => {
-    playClick();
-    onClose();
-  }, [onClose]);
-
-  // Handle Escape key to close the panel
-  useEffect(() => {
+    // Set up keyboard listener for Escape key
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        handleClose();
+        this.handleClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleClose]);
+    this._store.add({ dispose: () => window.removeEventListener('keydown', handleKeyDown) });
+  }
 
-  const handleMusicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  handleClose = () => {
+    playClick();
+    this.props.onClose();
+  };
+
+  handleMusicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
-    setMusicVol(value);
+    this.musicVol.set(value, undefined);
     setMusicVolume(value);
-    setMusicVolumeStore(value);
+    uiStore.setMusicVolume(value);
   };
 
-  const handleSoundChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  handleSoundChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
-    setSoundVol(value);
+    this.soundVol.set(value, undefined);
     setSoundVolume(value);
-    setSoundVolumeStore(value);
+    uiStore.setSoundVolume(value);
   };
 
-  const handleSoundMouseUp = () => {
-    // Play a click sound when releasing the slider so user can hear the volume
+  handleSoundMouseUp = () => {
     playClick();
   };
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
+  handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
-      handleClose();
+      this.handleClose();
     }
   };
+}
+
+export const SettingsPanel = viewWithModel(SettingsPanelModel, (reader, model) => {
+  const musicVol = model.musicVol.read(reader);
+  const soundVol = model.soundVol.read(reader);
 
   return (
-    <div style={overlayStyle} onClick={handleOverlayClick}>
+    <div style={overlayStyle} onClick={model.handleOverlayClick}>
       <div style={panelStyle} role="dialog" aria-labelledby="settings-title">
         <h2 id="settings-title" style={titleStyle}>⚙ SETTINGS</h2>
 
@@ -149,7 +143,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             max="1"
             step="0.01"
             value={musicVol}
-            onChange={handleMusicChange}
+            onChange={model.handleMusicChange}
             style={sliderStyle}
             aria-labelledby="music-label"
             aria-valuenow={Math.round(musicVol * 100)}
@@ -169,9 +163,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             max="1"
             step="0.01"
             value={soundVol}
-            onChange={handleSoundChange}
-            onMouseUp={handleSoundMouseUp}
-            onTouchEnd={handleSoundMouseUp}
+            onChange={model.handleSoundChange}
+            onMouseUp={model.handleSoundMouseUp}
+            onTouchEnd={model.handleSoundMouseUp}
             style={sliderStyle}
             aria-labelledby="sound-label"
             aria-valuenow={Math.round(soundVol * 100)}
@@ -180,10 +174,10 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           />
         </div>
 
-        <button style={closeButtonStyle} onClick={handleClose}>
+        <button style={closeButtonStyle} onClick={model.handleClose}>
           CLOSE
         </button>
       </div>
     </div>
   );
-}
+});

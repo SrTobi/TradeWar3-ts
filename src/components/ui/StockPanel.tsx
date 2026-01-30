@@ -1,6 +1,7 @@
-import { useRef, useEffect } from 'react';
-import { useGameStore } from '@/store/gameStore';
-import { useUIStore } from '@/store/uiStore';
+import { autorun } from '@vscode/observables';
+import { ViewModel, viewWithModel } from '@vscode/observables-react';
+import { gameStore } from '@/store/gameStore';
+import { uiStore } from '@/store/uiStore';
 import { calculateBulkUpgradeCost } from '@/game/stock';
 import { getEffectiveUnitCost } from '@/game/constants';
 import { playBuy, playSell, playUpgrade } from '@/audio/sounds';
@@ -232,34 +233,59 @@ function Sparkline({ history }: { history: number[] }) {
   );
 }
 
-export function StockPanel() {
-  const gameState = useGameStore((s) => s.gameState);
-  const local = useGameStore((s) => s.local);
-  const buyStock = useGameStore((s) => s.buyStock);
-  const sellStock = useGameStore((s) => s.sellStock);
-  const upgradeBulk = useGameStore((s) => s.upgradeBulk);
-  const playerName = useUIStore((s) => s.playerName);
-
+class StockPanelModel extends ViewModel() {
   // Track price history for each company
-  const priceHistoryRef = useRef<Map<string, number[]>>(new Map());
+  public readonly priceHistory = new Map<string, number[]>();
 
-  // Update price history when prices change
-  useEffect(() => {
-    if (!gameState) return;
+  constructor() {
+    super({});
 
-    for (const company of gameState.companies) {
-      const history = priceHistoryRef.current.get(company.id) || [];
+    // Set up autorun to track price history changes
+    const disposeAutorun = autorun((reader) => {
+      const gameState = gameStore.gameState.read(reader);
+      if (!gameState) return;
 
-      // Only add if price changed or history is empty
-      if (history.length === 0 || history[history.length - 1] !== company.price) {
-        history.push(company.price);
-        if (history.length > HISTORY_LENGTH) {
-          history.shift();
+      for (const company of gameState.companies) {
+        const history = this.priceHistory.get(company.id) || [];
+
+        // Only add if price changed or history is empty
+        if (history.length === 0 || history[history.length - 1] !== company.price) {
+          history.push(company.price);
+          if (history.length > HISTORY_LENGTH) {
+            history.shift();
+          }
+          this.priceHistory.set(company.id, history);
         }
-        priceHistoryRef.current.set(company.id, history);
       }
-    }
-  }, [gameState?.companies]);
+    });
+    this._store.add(disposeAutorun);
+  }
+
+  handleBuy = (company: { id: string; price: number; name: string; previousPrice: number; nextUpdateTime: number }) => {
+    gameStore.buyStock(company);
+    playBuy();
+  };
+
+  handleSell = (company: { id: string; price: number; name: string; previousPrice: number; nextUpdateTime: number }) => {
+    gameStore.sellStock(company);
+    playSell();
+  };
+
+  handleUpgrade = () => {
+    gameStore.upgradeBulk();
+    playUpgrade();
+  };
+
+  addDevMoney = () => {
+    const local = gameStore.local.get();
+    gameStore.local.set({ ...local, money: local.money + 1_000_000 }, undefined);
+  };
+}
+
+export const StockPanel = viewWithModel(StockPanelModel, (reader, model) => {
+  const gameState = gameStore.gameState.read(reader);
+  const local = gameStore.local.read(reader);
+  const playerName = uiStore.playerName.read(reader);
 
   if (!gameState) return null;
 
@@ -289,11 +315,7 @@ export function StockPanel() {
                 borderRadius: 4,
                 cursor: 'pointer',
               }}
-              onClick={() =>
-                useGameStore.setState((s) => ({
-                  local: { ...s.local, money: s.local.money + 1_000_000 },
-                }))
-              }
+              onClick={model.addDevMoney}
               title="Add 1,000,000 credits (devmode)"
             >
               +1M €
@@ -323,7 +345,7 @@ export function StockPanel() {
           const priceChange = company.price - company.previousPrice;
           const canBuy = local.money >= company.price * local.bulkAmount;
           const canSell = held >= 1;
-          const history = priceHistoryRef.current.get(company.id) || [company.price];
+          const history = model.priceHistory.get(company.id) || [company.price];
 
           // Price color based on relative value
           const priceRatio = company.price / 2000;
@@ -357,20 +379,14 @@ export function StockPanel() {
               </span>
               <button
                 style={canBuy ? buttonStyle : buttonDisabledStyle}
-                onClick={() => {
-                  buyStock(company);
-                  playBuy();
-                }}
+                onClick={() => model.handleBuy(company)}
                 disabled={!canBuy}
               >
                 BUY
               </button>
               <button
                 style={canSell ? buttonStyle : buttonDisabledStyle}
-                onClick={() => {
-                  sellStock(company);
-                  playSell();
-                }}
+                onClick={() => model.handleSell(company)}
                 disabled={!canSell}
               >
                 SELL
@@ -387,10 +403,7 @@ export function StockPanel() {
         </span>
         <button
           style={local.money >= upgradeCost ? upgradeButtonStyle : upgradeDisabledStyle}
-          onClick={() => {
-            upgradeBulk();
-            playUpgrade();
-          }}
+          onClick={model.handleUpgrade}
           disabled={local.money < upgradeCost}
         >
           UPGRADE (${upgradeCost.toLocaleString()})
@@ -398,4 +411,4 @@ export function StockPanel() {
       </div>
     </div>
   );
-}
+});

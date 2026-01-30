@@ -1,7 +1,8 @@
 import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera } from '@react-three/drei';
-import { useGameStore } from '@/store/gameStore';
-import { useUIStore } from '@/store/uiStore';
+import { view } from '@vscode/observables-react';
+import { gameStore } from '@/store/gameStore';
+import { uiStore } from '@/store/uiStore';
 import { gameClient } from '@/network/client';
 import { FACTION_COLORS, getConnectionStatusColor } from '@/types/game';
 import { Starfield } from '@/components/three/Starfield';
@@ -117,12 +118,11 @@ const waitingStyle: React.CSSProperties = {
   fontStyle: 'italic',
 };
 
-export function Lobby() {
-  const gameState = useGameStore((s) => s.gameState);
-  const local = useGameStore((s) => s.local);
-  const isHost = useUIStore((s) => s.isHost);
-  const setScreen = useUIStore((s) => s.setScreen);
-  const pingLatency = useUIStore((s) => s.pingLatency);
+export const Lobby = view({}, (reader) => {
+  const gameState = gameStore.gameState.read(reader);
+  const local = gameStore.local.read(reader);
+  const isHost = uiStore.isHost.read(reader);
+  const pingLatency = uiStore.pingLatency.read(reader);
 
   const getStatusDotStyle = (latency: number | null): React.CSSProperties => {
     const color = getConnectionStatusColor(latency);
@@ -144,7 +144,7 @@ export function Lobby() {
   const handleLeave = () => {
     playClick();
     gameClient.send({ type: 'leaveGame' });
-    setScreen('menu');
+    uiStore.setScreen('menu');
   };
 
   const handleAddAi = () => {
@@ -242,4 +242,4 @@ export function Lobby() {
       </div>
     </div>
   );
-}
+});

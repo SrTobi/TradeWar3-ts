@@ -1,5 +1,6 @@
-import { useGameStore } from '@/store/gameStore';
-import { useUIStore } from '@/store/uiStore';
+import { view } from '@vscode/observables-react';
+import { gameStore } from '@/store/gameStore';
+import { uiStore } from '@/store/uiStore';
 import { getFactionColor, getConnectionStatusColor } from '@/types/game';
 
 const containerStyle: React.CSSProperties = {
@@ -43,10 +44,11 @@ const statusDotStyle = (latency: number | null): React.CSSProperties => {
   };
 };
 
-export function PlayerList() {
-  const gameState = useGameStore((s) => s.gameState);
-  const localFactionId = useGameStore((s) => s.local.factionId);
-  const pingLatency = useUIStore((s) => s.pingLatency);
+export const PlayerList = view({}, (reader) => {
+  const gameState = gameStore.gameState.read(reader);
+  const local = gameStore.local.read(reader);
+  const localFactionId = local.factionId;
+  const pingLatency = uiStore.pingLatency.read(reader);
 
   if (!gameState) return null;
 
@@ -79,4 +81,4 @@ export function PlayerList() {
       })}
     </div>
   );
-}
+});

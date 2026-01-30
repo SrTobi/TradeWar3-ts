@@ -5,7 +5,7 @@ import type { Country } from '@/types/game';
 import { getFactionColor } from '@/types/game';
 import { getCountryOwner } from '@/game/battle';
 import { hexToPixel } from '@/game/hex';
-import { useUIStore } from '@/store/uiStore';
+import { uiStore } from '@/store/uiStore';
 import { Text } from '@react-three/drei';
 
 interface HexProps {
@@ -63,12 +63,15 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
   const innerHighlightRef = useRef<THREE.LineLoop>(null);
   const pulseTimeRef = useRef(Math.random() * Math.PI * 2);
 
-  const hoveredHex = useUIStore((s) => s.hoveredHex);
-  const setHoveredHex = useUIStore((s) => s.setHoveredHex);
+  // Read observable state directly (Three.js components re-render via parent)
+  const hoveredHex = uiStore.hoveredHex.get();
 
   const owner = getCountryOwner(country);
   const isHovered = hoveredHex?.q === country.coords.q && hoveredHex?.r === country.coords.r;
   const isNeutral = owner === 'neutral';
+
+  const handlePointerEnter = () => uiStore.setHoveredHex(country.coords);
+  const handlePointerLeave = () => uiStore.setHoveredHex(null);
 
   const position = useMemo(() => {
     const { x, y } = hexToPixel(country.coords, size);
@@ -223,8 +226,8 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
       <mesh
         geometry={hexGeometry}
         onClick={onClick}
-        onPointerEnter={() => setHoveredHex(country.coords)}
-        onPointerLeave={() => setHoveredHex(null)}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
       >
         <meshBasicMaterial vertexColors transparent opacity={isHovered ? 1.0 : 0.9} />
       </mesh>

@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { observableValue, autorun } from '@vscode/observables';
+import { ViewModel, viewWithModel } from '@vscode/observables-react';
 import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera } from '@react-three/drei';
-import { useUIStore } from '@/store/uiStore';
-import { useGameStore } from '@/store/gameStore';
+import { uiStore } from '@/store/uiStore';
+import { gameStore } from '@/store/gameStore';
 import { gameClient, ServerConfig } from '@/network/client';
 import { GAME } from '@/game/constants';
 import { Starfield } from '@/components/three/Starfield';
@@ -234,113 +235,128 @@ function formatServerConfig(config: ServerConfig): string {
   return `${config.address}:${config.port}`;
 }
 
-export function MainMenu() {
-  const { playerName, setPlayerName, setScreen, setPingLatency } = useUIStore();
-  const { setLocalPlayer, setGameState } = useGameStore();
-  const [error, setError] = useState('');
-  const [connected, setConnected] = useState(false);
-  const [connecting, setConnecting] = useState(false);
-  const [games, setGames] = useState<GameInfo[]>([]);
-  const hasConnected = useRef(false);
-  const server = getServerConfig();
+class MainMenuModel extends ViewModel() {
+  public readonly error = observableValue<string>(this, '');
+  public readonly connected = observableValue<boolean>(this, false);
+  public readonly connecting = observableValue<boolean>(this, false);
+  public readonly games = observableValue<GameInfo[]>(this, []);
+  private hasConnected = false;
+  public readonly server = getServerConfig();
 
-  // Auto-connect on mount
-  useEffect(() => {
-    if (hasConnected.current) return;
-    hasConnected.current = true;
+  constructor() {
+    super({});
+    this.initConnection();
 
-    const connect = async () => {
-      setConnecting(true);
-      try {
-        await gameClient.connect(server);
-        setConnected(true);
-        setError('');
-
-        // Register latency handler
-        gameClient.onLatency((latency) => {
-          setPingLatency(latency);
-        });
-
-        gameClient.onMessage((msg) => {
-          switch (msg.type) {
-            case 'welcome':
-              setLocalPlayer(msg.playerId, '');
-              // Request game list
-              gameClient.send({ type: 'listGames' });
-              break;
-            case 'gameList':
-              setGames(msg.games);
-              break;
-            case 'joinedGame':
-              setLocalPlayer('', msg.factionId);
-              setScreen('lobby');
-              break;
-            case 'leftGame':
-              gameClient.send({ type: 'listGames' });
-              break;
-            case 'lobbyUpdate':
-              setGameState({
-                phase: 'lobby',
-                countries: [],
-                companies: [],
-                factions: [],
-                players: msg.players,
-                unitCost: 0,
-                winner: null,
-              });
-              break;
-            case 'gameStarted':
-              setScreen('game');
-              break;
-            case 'gameState':
-              setGameState(msg.state);
-              if (msg.state.phase === 'playing') {
-                setScreen('game');
-              }
-              break;
-            case 'error':
-              setError(msg.message);
-              break;
-          }
-        });
-      } catch {
-        setError(`Failed to connect to ${formatServerConfig(server)}`);
-      } finally {
-        setConnecting(false);
+    // Set up autorun to sync player name with server
+    const disposeAutorun = autorun((reader) => {
+      const playerName = uiStore.playerName.read(reader);
+      const isConnected = this.connected.read(reader);
+      if (isConnected && playerName.trim()) {
+        gameClient.send({ type: 'setName', playerName: playerName.trim() });
       }
-    };
+    });
+    this._store.add(disposeAutorun);
+  }
 
-    connect();
-  }, []);
+  private async initConnection() {
+    if (this.hasConnected) return;
+    this.hasConnected = true;
 
-  // Update name on server when it changes
-  useEffect(() => {
-    if (connected && playerName.trim()) {
-      gameClient.send({ type: 'setName', playerName: playerName.trim() });
+    this.connecting.set(true, undefined);
+    try {
+      await gameClient.connect(this.server);
+      this.connected.set(true, undefined);
+      this.error.set('', undefined);
+
+      // Register latency handler
+      gameClient.onLatency((latency) => {
+        uiStore.setPingLatency(latency);
+      });
+
+      gameClient.onMessage((msg) => {
+        switch (msg.type) {
+          case 'welcome':
+            gameStore.setLocalPlayer(msg.playerId, '');
+            // Request game list
+            gameClient.send({ type: 'listGames' });
+            break;
+          case 'gameList':
+            this.games.set(msg.games, undefined);
+            break;
+          case 'joinedGame':
+            gameStore.setLocalPlayer('', msg.factionId);
+            uiStore.setScreen('lobby');
+            break;
+          case 'leftGame':
+            gameClient.send({ type: 'listGames' });
+            break;
+          case 'lobbyUpdate':
+            gameStore.setGameState({
+              phase: 'lobby',
+              countries: [],
+              companies: [],
+              factions: [],
+              players: msg.players,
+              unitCost: 0,
+              winner: null,
+            });
+            break;
+          case 'gameStarted':
+            uiStore.setScreen('game');
+            break;
+          case 'gameState':
+            gameStore.setGameState(msg.state);
+            if (msg.state.phase === 'playing') {
+              uiStore.setScreen('game');
+            }
+            break;
+          case 'error':
+            this.error.set(msg.message, undefined);
+            break;
+        }
+      });
+    } catch {
+      this.error.set(`Failed to connect to ${formatServerConfig(this.server)}`, undefined);
+    } finally {
+      this.connecting.set(false, undefined);
     }
-  }, [playerName, connected]);
+  }
 
-  const handleHost = () => {
+  handleHost = () => {
     resumeAudio();
     playClick();
+    const playerName = uiStore.playerName.get();
     if (!playerName.trim()) {
-      setError('Please enter your commander name');
+      this.error.set('Please enter your commander name', undefined);
       return;
     }
-    setError('');
+    this.error.set('', undefined);
     gameClient.send({ type: 'createGame' });
   };
 
-  const handleJoin = (gameId: string) => {
+  handleJoin = (gameId: string) => {
     resumeAudio();
     playClick();
+    const playerName = uiStore.playerName.get();
     if (!playerName.trim()) {
-      setError('Please enter your commander name');
+      this.error.set('Please enter your commander name', undefined);
       return;
     }
-    setError('');
+    this.error.set('', undefined);
     gameClient.send({ type: 'joinGame', gameId });
   };
+
+  handlePlayerNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    uiStore.setPlayerName(e.target.value);
+  };
+}
+
+export const MainMenu = viewWithModel(MainMenuModel, (reader, model) => {
+  const playerName = uiStore.playerName.read(reader);
+  const error = model.error.read(reader);
+  const connected = model.connected.read(reader);
+  const connecting = model.connecting.read(reader);
+  const games = model.games.read(reader);
 
   const lobbyGames = games.filter((g) => g.phase === 'lobby');
 
@@ -360,7 +376,7 @@ export function MainMenu() {
 
         <div style={panelStyle}>
           {connecting ? (
-            <div style={statusStyle}>Connecting to {formatServerConfig(server)}...</div>
+            <div style={statusStyle}>Connecting to {formatServerConfig(model.server)}...</div>
           ) : !connected ? (
             <div style={errorStyle}>{error || 'Not connected'}</div>
           ) : (
@@ -371,7 +387,7 @@ export function MainMenu() {
                   style={inputStyle}
                   placeholder="Enter your name"
                   value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
+                  onChange={model.handlePlayerNameChange}
                   autoFocus
                 />
               </div>
@@ -398,7 +414,7 @@ export function MainMenu() {
                             {game.players.length > 0 && <> - {game.players.join(', ')}</>}
                           </div>
                         </div>
-                        <button style={joinButtonStyle} onClick={() => handleJoin(game.id)}>
+                        <button style={joinButtonStyle} onClick={() => model.handleJoin(game.id)}>
                           JOIN
                         </button>
                       </div>
@@ -409,7 +425,7 @@ export function MainMenu() {
 
               {error && <p style={errorStyle}>{error}</p>}
 
-              <button style={hostButtonStyle} onClick={handleHost}>
+              <button style={hostButtonStyle} onClick={model.handleHost}>
                 HOST NEW GAME
               </button>
             </>
@@ -417,9 +433,9 @@ export function MainMenu() {
         </div>
 
         <p style={{ marginTop: '30px', color: '#445566', fontSize: '13px' }}>
-          Server: {formatServerConfig(server)}
+          Server: {formatServerConfig(model.server)}
         </p>
       </div>
     </div>
   );
-}
+});

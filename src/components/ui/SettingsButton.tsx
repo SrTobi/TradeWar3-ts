@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { observableValue } from '@vscode/observables';
+import { ViewModel, viewWithModel } from '@vscode/observables-react';
 import { playClick } from '@/audio/sounds';
 import { SettingsPanel } from './SettingsPanel';
 
@@ -29,28 +30,41 @@ const buttonHoverStyle: React.CSSProperties = {
   transform: 'scale(1.05)',
 };
 
-export function SettingsButton() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+class SettingsButtonModel extends ViewModel() {
+  public readonly isOpen = observableValue(this, false);
+  public readonly isHovered = observableValue(this, false);
 
-  const handleClick = () => {
+  handleClick = () => {
     playClick();
-    setIsOpen(true);
+    this.isOpen.set(true, undefined);
   };
+
+  handleClose = () => {
+    this.isOpen.set(false, undefined);
+  };
+
+  setHovered = (hovered: boolean) => {
+    this.isHovered.set(hovered, undefined);
+  };
+}
+
+export const SettingsButton = viewWithModel(SettingsButtonModel, (reader, model) => {
+  const isOpen = model.isOpen.read(reader);
+  const isHovered = model.isHovered.read(reader);
 
   return (
     <>
       <button
         style={isHovered ? buttonHoverStyle : buttonStyle}
-        onClick={handleClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onClick={model.handleClick}
+        onMouseEnter={() => model.setHovered(true)}
+        onMouseLeave={() => model.setHovered(false)}
         title="Settings"
         aria-label="Open settings"
       >
         ⚙
       </button>
-      {isOpen && <SettingsPanel onClose={() => setIsOpen(false)} />}
+      {isOpen && <SettingsPanel onClose={model.handleClose} />}
     </>
   );
-}
+});

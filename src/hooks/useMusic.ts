@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { useGameStore } from '@/store/gameStore';
+import { gameStore } from '@/store/gameStore';
+import { autorun, IDisposable } from '@vscode/observables';
 import { getCountryOwner } from '@/game/battle';
 
 export type MusicTrack = 'menu' | 'game' | 'battle' | 'victory' | 'danger';
@@ -23,6 +23,8 @@ class MusicManager {
   private audio: HTMLAudioElement | null = null;
   private loaded: Map<MusicTrack, HTMLAudioElement> = new Map();
   private currentVolume: number = DEFAULT_MUSIC_VOLUME;
+  private disposeAutorun: IDisposable | null = null;
+  private lastUpdateTime: number = 0;
 
   private getAudio(track: MusicTrack): HTMLAudioElement | null {
     if (this.loaded.has(track)) {
@@ -79,48 +81,34 @@ class MusicManager {
   getVolume(): number {
     return this.currentVolume;
   }
-}
 
-const musicManager = new MusicManager();
+  private updateMusicBasedOnState(): void {
+    const gameState = gameStore.gameState.get();
+    const local = gameStore.local.get();
+    const localFactionId = local.factionId;
 
-// Export function to set music volume from outside the hook
-export function setMusicVolume(volume: number): void {
-  musicManager.setVolume(volume);
-}
-
-// Export function to get current music volume
-export function getMusicVolume(): number {
-  return musicManager.getVolume();
-}
-
-export function useMusic() {
-  const gameState = useGameStore((s) => s.gameState);
-  const localFactionId = useGameStore((s) => s.local.factionId);
-  const lastUpdateRef = useRef(0);
-
-  useEffect(() => {
     if (!gameState || !localFactionId) {
-      musicManager.play('menu');
+      this.play('menu');
       return;
     }
 
     if (gameState.phase === 'lobby') {
-      musicManager.play('menu');
+      this.play('menu');
       return;
     }
 
     if (gameState.phase === 'ended') {
       const isWinner = gameState.winner?.id === localFactionId;
-      musicManager.play(isWinner ? 'victory' : 'danger');
+      this.play(isWinner ? 'victory' : 'danger');
       return;
     }
 
     // Game is playing - update music based on game state periodically
     const now = Date.now();
-    if (now - lastUpdateRef.current < MUSIC_UPDATE_INTERVAL) {
+    if (now - this.lastUpdateTime < MUSIC_UPDATE_INTERVAL) {
       return;
     }
-    lastUpdateRef.current = now;
+    this.lastUpdateTime = now;
 
     // Calculate player's territory share
     const totalTerritories = gameState.countries.length;
@@ -191,8 +179,44 @@ export function useMusic() {
       track = 'battle';
     }
 
-    musicManager.play(track);
-  }, [gameState, localFactionId]);
+    this.play(track);
+  }
 
-  return musicManager;
+  init(): void {
+    if (this.disposeAutorun) return; // Already initialized
+
+    // Use autorun to react to observable changes
+    this.disposeAutorun = autorun((reader) => {
+      // Read observables to track them
+      gameStore.gameState.read(reader);
+      gameStore.local.read(reader);
+      // Update music based on state
+      this.updateMusicBasedOnState();
+    });
+  }
+
+  dispose(): void {
+    if (this.disposeAutorun) {
+      this.disposeAutorun.dispose();
+      this.disposeAutorun = null;
+    }
+    this.stop();
+  }
+}
+
+const musicManager = new MusicManager();
+
+// Export function to initialize the music system
+export function initMusicSystem(): void {
+  musicManager.init();
+}
+
+// Export function to set music volume from outside
+export function setMusicVolume(volume: number): void {
+  musicManager.setVolume(volume);
+}
+
+// Export function to get current music volume
+export function getMusicVolume(): number {
+  return musicManager.getVolume();
 }

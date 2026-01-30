@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
-import { useGameStore } from '@/store/gameStore';
-import { useUIStore } from '@/store/uiStore';
+import { autorun } from '@vscode/observables';
+import { ViewModel, viewWithModel } from '@vscode/observables-react';
+import { gameStore } from '@/store/gameStore';
+import { uiStore } from '@/store/uiStore';
 import { StockPanel } from './StockPanel';
 import { PlayerList } from './PlayerList';
 import { playVictory, playDefeat, playClick, playPlaceUnit, playError } from '@/audio/sounds';
@@ -47,40 +48,48 @@ const hiddenButtonStyle: React.CSSProperties = {
   pointerEvents: 'auto',
 };
 
-export function GameOverlay() {
-  const gameState = useGameStore((s) => s.gameState);
-  const localFactionId = useGameStore((s) => s.local.factionId);
-  const spendMoney = useGameStore((s) => s.spendMoney);
-  const setScreen = useUIStore((s) => s.setScreen);
-  const playerName = useUIStore((s) => s.playerName);
-  const reset = useGameStore((s) => s.reset);
-  const lastClickedHex = useUIStore((s) => s.lastClickedHex);
-  const prevPhaseRef = useRef<string | null>(null);
-  const troopButtonRef = useRef<HTMLButtonElement>(null);
+class GameOverlayModel extends ViewModel() {
+  private prevPhase: string | null = null;
+  public troopButtonRef: React.RefObject<HTMLButtonElement | null> = { current: null };
 
-  const isWinner = gameState?.winner?.id === localFactionId;
+  constructor() {
+    super({});
 
-  // Play victory/defeat sound when game ends
-  useEffect(() => {
-    if (gameState?.phase === 'ended' && prevPhaseRef.current !== 'ended') {
-      if (isWinner) {
-        playVictory();
-      } else {
-        playDefeat();
+    // Set up autorun to play victory/defeat sound when game ends
+    const disposeAutorun = autorun((reader) => {
+      const gameState = gameStore.gameState.read(reader);
+      const local = gameStore.local.read(reader);
+      const localFactionId = local.factionId;
+      const isWinner = gameState?.winner?.id === localFactionId;
+
+      if (gameState?.phase === 'ended' && this.prevPhase !== 'ended') {
+        if (isWinner) {
+          playVictory();
+        } else {
+          playDefeat();
+        }
       }
-    }
-    prevPhaseRef.current = gameState?.phase ?? null;
-  }, [gameState?.phase, isWinner]);
+      this.prevPhase = gameState?.phase ?? null;
+    });
+    this._store.add(disposeAutorun);
 
-  // Focus the hidden troop button when a hex is clicked to enable spacebar repeat
-  useEffect(() => {
-    if (lastClickedHex && troopButtonRef.current) {
-      troopButtonRef.current.focus();
-    }
-  }, [lastClickedHex]);
+    // Set up autorun to focus troop button when hex is clicked
+    const disposeFocusAutorun = autorun((reader) => {
+      const lastClickedHex = uiStore.lastClickedHex.read(reader);
+      if (lastClickedHex && this.troopButtonRef.current) {
+        this.troopButtonRef.current.focus();
+      }
+    });
+    this._store.add(disposeFocusAutorun);
+  }
 
-  // Handle repeating troop placement via the hidden button
-  const handleRepeatTroopPlacement = () => {
+  handleRepeatTroopPlacement = () => {
+    const gameState = gameStore.gameState.get();
+    const local = gameStore.local.get();
+    const localFactionId = local.factionId;
+    const lastClickedHex = uiStore.lastClickedHex.get();
+    const playerName = uiStore.playerName.get();
+
     if (!gameState || !localFactionId || !lastClickedHex) return;
     if (gameState.phase !== 'playing') return;
 
@@ -95,7 +104,7 @@ export function GameOverlay() {
     }
 
     const effectiveCost = getEffectiveUnitCost(gameState.unitCost, playerName);
-    if (spendMoney(effectiveCost)) {
+    if (gameStore.spendMoney(effectiveCost)) {
       playPlaceUnit();
       gameClient.send({ type: 'placeUnits', coords: lastClickedHex });
     } else {
@@ -103,19 +112,26 @@ export function GameOverlay() {
     }
   };
 
-  const handleReturnToMenu = () => {
+  handleReturnToMenu = () => {
     playClick();
-    reset();
-    setScreen('menu');
+    gameStore.reset();
+    uiStore.setScreen('menu');
   };
+}
+
+export const GameOverlay = viewWithModel(GameOverlayModel, (reader, model) => {
+  const gameState = gameStore.gameState.read(reader);
+  const local = gameStore.local.read(reader);
+  const localFactionId = local.factionId;
+  const isWinner = gameState?.winner?.id === localFactionId;
 
   return (
     <div style={overlayStyle}>
       {/* Hidden button for spacebar repeat of troop placement */}
       <button
-        ref={troopButtonRef}
+        ref={model.troopButtonRef}
         style={hiddenButtonStyle}
-        onClick={handleRepeatTroopPlacement}
+        onClick={model.handleRepeatTroopPlacement}
         aria-label="Repeat troop placement"
         tabIndex={-1}
       />
@@ -143,7 +159,7 @@ export function GameOverlay() {
               cursor: 'pointer',
               borderRadius: '6px',
             }}
-            onClick={handleReturnToMenu}
+            onClick={model.handleReturnToMenu}
           >
             Return to Menu
           </button>
@@ -151,4 +167,4 @@ export function GameOverlay() {
       )}
     </div>
   );
-}
+});

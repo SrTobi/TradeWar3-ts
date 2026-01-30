@@ -1,7 +1,7 @@
-import { create } from 'zustand';
+import { observableValue } from '@vscode/observables';
 import type { HexCoord } from '@/types/game';
 
-type Screen = 'menu' | 'lobby' | 'game';
+export type Screen = 'menu' | 'lobby' | 'game';
 
 interface BattleParticle {
   id: string;
@@ -12,27 +12,6 @@ interface BattleParticle {
 interface VolumeSettings {
   musicVolume: number; // 0.0 - 1.0
   soundVolume: number; // 0.0 - 1.0
-}
-
-interface UIStore {
-  screen: Screen;
-  setScreen: (screen: Screen) => void;
-  hoveredHex: HexCoord | null;
-  setHoveredHex: (hex: HexCoord | null) => void;
-  lastClickedHex: HexCoord | null;
-  setLastClickedHex: (hex: HexCoord | null) => void;
-  battleParticles: BattleParticle[];
-  addBattleParticle: (coords: HexCoord) => void;
-  removeBattleParticle: (id: string) => void;
-  playerName: string;
-  setPlayerName: (name: string) => void;
-  isHost: boolean;
-  setIsHost: (isHost: boolean) => void;
-  pingLatency: number | null;
-  setPingLatency: (latency: number | null) => void;
-  volumeSettings: VolumeSettings;
-  setMusicVolume: (volume: number) => void;
-  setSoundVolume: (volume: number) => void;
 }
 
 let particleId = 0;
@@ -88,59 +67,72 @@ function saveVolumeSettings(settings: VolumeSettings): void {
   }
 }
 
-export const useUIStore = create<UIStore>((set) => ({
-  screen: 'menu',
-  setScreen: (screen) => set({ screen }),
+// UI Store using observables
+class UIStoreClass {
+  readonly screen = observableValue<Screen>('uiStore.screen', 'menu');
+  readonly hoveredHex = observableValue<HexCoord | null>('uiStore.hoveredHex', null);
+  readonly lastClickedHex = observableValue<HexCoord | null>('uiStore.lastClickedHex', null);
+  readonly battleParticles = observableValue<BattleParticle[]>('uiStore.battleParticles', []);
+  readonly playerName = observableValue<string>('uiStore.playerName', loadPlayerName());
+  readonly isHost = observableValue<boolean>('uiStore.isHost', false);
+  readonly pingLatency = observableValue<number | null>('uiStore.pingLatency', null);
+  readonly volumeSettings = observableValue<VolumeSettings>('uiStore.volumeSettings', loadVolumeSettings());
 
-  hoveredHex: null,
-  setHoveredHex: (hex) => set({ hoveredHex: hex }),
+  setScreen = (screen: Screen) => {
+    this.screen.set(screen, undefined);
+  };
 
-  lastClickedHex: null,
-  setLastClickedHex: (hex) => set({ lastClickedHex: hex }),
+  setHoveredHex = (hex: HexCoord | null) => {
+    this.hoveredHex.set(hex, undefined);
+  };
 
-  battleParticles: [],
-  addBattleParticle: (coords) => {
+  setLastClickedHex = (hex: HexCoord | null) => {
+    this.lastClickedHex.set(hex, undefined);
+  };
+
+  addBattleParticle = (coords: HexCoord) => {
     const id = `particle-${particleId++}`;
-    set((s) => ({
-      battleParticles: [...s.battleParticles, { id, coords, startTime: Date.now() }],
-    }));
+    const current = this.battleParticles.get();
+    this.battleParticles.set([...current, { id, coords, startTime: Date.now() }], undefined);
     setTimeout(() => {
-      set((s) => ({
-        battleParticles: s.battleParticles.filter((p) => p.id !== id),
-      }));
+      this.removeBattleParticle(id);
     }, 1000);
-  },
+  };
 
-  playerName: loadPlayerName(),
-  setPlayerName: (name) => {
+  removeBattleParticle = (id: string) => {
+    const current = this.battleParticles.get();
+    this.battleParticles.set(current.filter((p) => p.id !== id), undefined);
+  };
+
+  setPlayerName = (name: string) => {
     savePlayerName(name);
-    set({ playerName: name });
-  },
+    this.playerName.set(name, undefined);
+  };
 
-  isHost: false,
-  setIsHost: (isHost) => set({ isHost }),
+  setIsHost = (isHost: boolean) => {
+    this.isHost.set(isHost, undefined);
+  };
 
-  pingLatency: null,
-  setPingLatency: (latency) => set({ pingLatency: latency }),
+  setPingLatency = (latency: number | null) => {
+    this.pingLatency.set(latency, undefined);
+  };
 
-  removeBattleParticle: (id) =>
-    set((s) => ({
-      battleParticles: s.battleParticles.filter((p) => p.id !== id),
-    })),
+  setMusicVolume = (volume: number) => {
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    const current = this.volumeSettings.get();
+    const newSettings = { ...current, musicVolume: clampedVolume };
+    saveVolumeSettings(newSettings);
+    this.volumeSettings.set(newSettings, undefined);
+  };
 
-  volumeSettings: loadVolumeSettings(),
-  setMusicVolume: (volume) =>
-    set((s) => {
-      const clampedVolume = Math.max(0, Math.min(1, volume));
-      const newSettings = { ...s.volumeSettings, musicVolume: clampedVolume };
-      saveVolumeSettings(newSettings);
-      return { volumeSettings: newSettings };
-    }),
-  setSoundVolume: (volume) =>
-    set((s) => {
-      const clampedVolume = Math.max(0, Math.min(1, volume));
-      const newSettings = { ...s.volumeSettings, soundVolume: clampedVolume };
-      saveVolumeSettings(newSettings);
-      return { volumeSettings: newSettings };
-    }),
-}));
+  setSoundVolume = (volume: number) => {
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    const current = this.volumeSettings.get();
+    const newSettings = { ...current, soundVolume: clampedVolume };
+    saveVolumeSettings(newSettings);
+    this.volumeSettings.set(newSettings, undefined);
+  };
+}
+
+// Singleton instance
+export const uiStore = new UIStoreClass();

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { useGameStore } from '@/store/gameStore';
-import { useUIStore } from '@/store/uiStore';
+import { gameStore } from '@/store/gameStore';
+import { uiStore } from '@/store/uiStore';
 import { gameClient } from '@/network/client';
 import { Hex } from './Hex';
 import { Connections } from './Connections';
@@ -14,11 +14,10 @@ import { playPlaceUnit, playError } from '@/audio/sounds';
 const HEX_SIZE = 1;
 
 export function HexMap() {
-  const gameState = useGameStore((s) => s.gameState);
-  const localFactionId = useGameStore((s) => s.local.factionId);
-  const spendMoney = useGameStore((s) => s.spendMoney);
-  const setLastClickedHex = useUIStore((s) => s.setLastClickedHex);
-  const playerName = useUIStore((s) => s.playerName);
+  // Read observable state directly (Three.js components re-render via parent Canvas)
+  const gameState = gameStore.gameState.get();
+  const local = gameStore.local.get();
+  const localFactionId = local.factionId;
 
   // Pre-compute defense bonuses for all hexes to avoid recalculating in each Hex component
   // Only show defense bonus for the local player in territories that are at war (contested)
@@ -76,12 +75,13 @@ export function HexMap() {
     }
 
     // Now try to spend money
-    const effectiveCost = getEffectiveUnitCost(gameState.unitCost, playerName);
-    if (spendMoney(effectiveCost)) {
+    const currentPlayerName = uiStore.playerName.get();
+    const effectiveCost = getEffectiveUnitCost(gameState.unitCost, currentPlayerName);
+    if (gameStore.spendMoney(effectiveCost)) {
       playPlaceUnit();
       gameClient.send({ type: 'placeUnits', coords });
       // Store the last clicked hex so spacebar can repeat the action
-      setLastClickedHex(coords);
+      uiStore.setLastClickedHex(coords);
     } else {
       playError();
     }

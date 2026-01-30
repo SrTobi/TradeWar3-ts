@@ -5,7 +5,7 @@ import type { Country } from '@/types/game';
 import { getFactionColor } from '@/types/game';
 import { getCountryOwner } from '@/game/battle';
 import { hexToPixel, hexNeighbors, hexKey } from '@/game/hex';
-import { useGameStore } from '@/store/gameStore';
+import { gameStore } from '@/store/gameStore';
 import { Line } from '@react-three/drei';
 
 interface ConnectionsProps {
@@ -22,7 +22,7 @@ interface Connection {
 export function Connections({ countries, size }: ConnectionsProps) {
   const groupRef = useRef<THREE.Group>(null);
   const pulseTimeRef = useRef(0);
-  const localFactionId = useGameStore((s) => s.local.factionId);
+  const localFactionId = gameStore.local.get().factionId;
 
   const connections = useMemo(() => {
     const result: Connection[] = [];
