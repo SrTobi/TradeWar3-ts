@@ -1,4 +1,4 @@
-import { ViewModel, viewWithModel } from '@vscode/observables-react';
+import { view } from '@vscode/observables-react';
 import { uiStore } from '@/store/uiStore';
 import { MainMenu } from '@/components/screens/MainMenu';
 import { Lobby } from '@/components/screens/Lobby';
@@ -7,21 +7,15 @@ import { setMusicVolume, initMusicSystem } from '@/hooks/useMusic';
 import { setSoundVolume } from '@/audio/sounds';
 import { SettingsButton } from '@/components/ui/SettingsButton';
 
-class AppModel extends ViewModel() {
-  constructor() {
-    super({});
+// Initialize music system once on module load
+initMusicSystem();
 
-    // Initialize music system
-    initMusicSystem();
+// Initialize volume settings from store
+const volumeSettings = uiStore.volumeSettings.get();
+setMusicVolume(volumeSettings.musicVolume);
+setSoundVolume(volumeSettings.soundVolume);
 
-    // Initialize volume settings from store
-    const volumeSettings = uiStore.volumeSettings.get();
-    setMusicVolume(volumeSettings.musicVolume);
-    setSoundVolume(volumeSettings.soundVolume);
-  }
-}
-
-export const App = viewWithModel(AppModel, (reader) => {
+export const App = view({}, (reader) => {
   const screen = uiStore.screen.read(reader);
 
   const renderScreen = () => {

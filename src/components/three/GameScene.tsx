@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { HexMap } from './HexMap';
 import { Starfield } from './Starfield';
 import { GAME } from '@/game/constants';
+import type { GameState, LocalPlayerState, HexCoord } from '@/types/game';
 
 // Calculate the world bounds of the hex map
 const HEX_SIZE = 1;
@@ -15,6 +16,12 @@ const MAP_WIDTH = (MAP_RADIUS * 2 + 1) * HEX_SIZE * 1.75;
 const MAP_HEIGHT = (MAP_RADIUS * 2 + 1) * HEX_SIZE * Math.sqrt(3);
 const PADDING = 1.5; // Extra padding around the map
 const LEFT_PANEL_WIDTH = 520; // Width of StockPanel in pixels
+
+interface GameSceneProps {
+  gameState: GameState | null;
+  local: LocalPlayerState;
+  hoveredHex: HexCoord | null;
+}
 
 function CameraController() {
   const { camera, size } = useThree();
@@ -57,7 +64,7 @@ function CameraController() {
   return null;
 }
 
-export function GameScene() {
+export function GameScene({ gameState, local, hoveredHex }: GameSceneProps) {
   return (
     <Canvas
       style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
@@ -67,7 +74,7 @@ export function GameScene() {
       <CameraController />
       <color attach="background" args={['#050508']} />
       <Starfield />
-      <HexMap />
+      <HexMap gameState={gameState} local={local} hoveredHex={hoveredHex} />
     </Canvas>
   );
 }

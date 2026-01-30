@@ -5,7 +5,7 @@ import { gameClient } from '@/network/client';
 import { Hex } from './Hex';
 import { Connections } from './Connections';
 import { Particles } from './Particles';
-import type { HexCoord } from '@/types/game';
+import type { HexCoord, GameState, LocalPlayerState } from '@/types/game';
 import { canPlaceUnits, countControlledNeighbors } from '@/game/battle';
 import { hexKey } from '@/game/hex';
 import { GAME, getEffectiveUnitCost } from '@/game/constants';
@@ -13,10 +13,13 @@ import { playPlaceUnit, playError } from '@/audio/sounds';
 
 const HEX_SIZE = 1;
 
-export function HexMap() {
-  // Read observable state directly (Three.js components re-render via parent Canvas)
-  const gameState = gameStore.gameState.get();
-  const local = gameStore.local.get();
+interface HexMapProps {
+  gameState: GameState | null;
+  local: LocalPlayerState;
+  hoveredHex: HexCoord | null;
+}
+
+export function HexMap({ gameState, local, hoveredHex }: HexMapProps) {
   const localFactionId = local.factionId;
 
   // Pre-compute defense bonuses for all hexes to avoid recalculating in each Hex component
@@ -90,7 +93,7 @@ export function HexMap() {
   return (
     <group>
       {/* Connection bridges between allied territories */}
-      <Connections countries={gameState.countries} size={HEX_SIZE} />
+      <Connections countries={gameState.countries} size={HEX_SIZE} localFactionId={localFactionId} />
 
       {/* Hex tiles */}
       {gameState.countries.map((country) => (
@@ -99,6 +102,7 @@ export function HexMap() {
           country={country}
           defenseBonus={defenseBonusMap.get(hexKey(country.coords)) ?? 0}
           localFactionId={localFactionId}
+          hoveredHex={hoveredHex}
           size={HEX_SIZE}
           onClick={() => handleHexClick(country.coords)}
         />

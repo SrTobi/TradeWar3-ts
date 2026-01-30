@@ -1,7 +1,7 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { Country } from '@/types/game';
+import type { Country, HexCoord } from '@/types/game';
 import { getFactionColor } from '@/types/game';
 import { getCountryOwner } from '@/game/battle';
 import { hexToPixel } from '@/game/hex';
@@ -12,6 +12,7 @@ interface HexProps {
   country: Country;
   defenseBonus: number;
   localFactionId: string | null;
+  hoveredHex: HexCoord | null;
   size: number;
   onClick: () => void;
 }
@@ -57,14 +58,11 @@ function createRoundedRectShape(width: number, height: number, radius: number): 
   return shape;
 }
 
-export function Hex({ country, defenseBonus, localFactionId, size, onClick }: HexProps) {
+export function Hex({ country, defenseBonus, localFactionId, hoveredHex, size, onClick }: HexProps) {
   const groupRef = useRef<THREE.Group>(null);
   const glowRingsRef = useRef<THREE.Group>(null);
   const innerHighlightRef = useRef<THREE.LineLoop>(null);
   const pulseTimeRef = useRef(Math.random() * Math.PI * 2);
-
-  // Read observable state directly (Three.js components re-render via parent)
-  const hoveredHex = uiStore.hoveredHex.get();
 
   const owner = getCountryOwner(country);
   const isHovered = hoveredHex?.q === country.coords.q && hoveredHex?.r === country.coords.r;

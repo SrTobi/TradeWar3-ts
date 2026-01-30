@@ -277,8 +277,7 @@ class StockPanelModel extends ViewModel() {
   };
 
   addDevMoney = () => {
-    const local = gameStore.local.get();
-    gameStore.local.set({ ...local, money: local.money + 1_000_000 }, undefined);
+    gameStore.addMoney(1_000_000);
   };
 }
 

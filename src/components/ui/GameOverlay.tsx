@@ -1,3 +1,4 @@
+import React from 'react';
 import { autorun } from '@vscode/observables';
 import { ViewModel, viewWithModel } from '@vscode/observables-react';
 import { gameStore } from '@/store/gameStore';

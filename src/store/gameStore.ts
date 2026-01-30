@@ -77,6 +77,11 @@ class GameStoreClass {
     return true;
   };
 
+  addMoney = (amount: number): void => {
+    const local = this.local.get();
+    this.local.set({ ...local, money: local.money + amount }, undefined);
+  };
+
   reset = () => {
     transaction((tx) => {
       this.gameState.set(null, tx);
