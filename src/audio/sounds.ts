@@ -20,6 +20,19 @@ type SoundName = keyof typeof SOUNDS;
 // Preloaded audio elements
 const preloadedAudio = new Map<SoundName, HTMLAudioElement>();
 
+// Global sound volume multiplier (0.0 - 1.0)
+let globalSoundVolume = 0.5;
+
+// Set global sound volume
+export function setSoundVolume(volume: number): void {
+  globalSoundVolume = Math.max(0, Math.min(1, volume));
+}
+
+// Get current sound volume
+export function getSoundVolume(): number {
+  return globalSoundVolume;
+}
+
 // Preload all sounds immediately
 for (const [name, path] of Object.entries(SOUNDS)) {
   const audio = new Audio(path);
@@ -29,14 +42,15 @@ for (const [name, path] of Object.entries(SOUNDS)) {
 }
 
 // Play a sound by cloning the preloaded audio (instant playback)
-function playSound(name: SoundName, volume: number = 0.5): void {
+function playSound(name: SoundName, baseVolume: number = 0.5): void {
   const source = preloadedAudio.get(name);
   if (!source) return;
 
   try {
     // Clone the preloaded audio for overlapping sounds
     const audio = source.cloneNode(true) as HTMLAudioElement;
-    audio.volume = volume;
+    // Apply global volume multiplier to base volume
+    audio.volume = baseVolume * globalSoundVolume;
     audio.play().catch(() => {
       // Ignore autoplay errors
     });

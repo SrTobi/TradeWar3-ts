@@ -4,7 +4,7 @@ import { getCountryOwner } from '@/game/battle';
 
 export type MusicTrack = 'menu' | 'game' | 'battle' | 'victory' | 'danger';
 
-const MUSIC_VOLUME = 0.7;
+const DEFAULT_MUSIC_VOLUME = 0.7;
 const MUSIC_UPDATE_INTERVAL = 2000; // ms
 
 const BASE_PATH = import.meta.env.BASE_URL;
@@ -22,6 +22,7 @@ class MusicManager {
   private currentTrack: MusicTrack | null = null;
   private audio: HTMLAudioElement | null = null;
   private loaded: Map<MusicTrack, HTMLAudioElement> = new Map();
+  private currentVolume: number = DEFAULT_MUSIC_VOLUME;
 
   private getAudio(track: MusicTrack): HTMLAudioElement | null {
     if (this.loaded.has(track)) {
@@ -31,7 +32,7 @@ class MusicManager {
     try {
       const audio = new Audio(MUSIC_PATHS[track]);
       audio.loop = true;
-      audio.volume = MUSIC_VOLUME;
+      audio.volume = this.currentVolume;
       this.loaded.set(track, audio);
       return audio;
     } catch (e) {
@@ -69,13 +70,28 @@ class MusicManager {
   }
 
   setVolume(volume: number): void {
+    this.currentVolume = Math.max(0, Math.min(1, volume));
     this.loaded.forEach((audio) => {
-      audio.volume = volume;
+      audio.volume = this.currentVolume;
     });
+  }
+
+  getVolume(): number {
+    return this.currentVolume;
   }
 }
 
 const musicManager = new MusicManager();
+
+// Export function to set music volume from outside the hook
+export function setMusicVolume(volume: number): void {
+  musicManager.setVolume(volume);
+}
+
+// Export function to get current music volume
+export function getMusicVolume(): number {
+  return musicManager.getVolume();
+}
 
 export function useMusic() {
   const gameState = useGameStore((s) => s.gameState);
