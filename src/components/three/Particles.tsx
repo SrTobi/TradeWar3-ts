@@ -95,7 +95,7 @@ export function Particles({ countries, size }: ParticlesProps) {
       } else if (colorVariant < 0.85) {
         color = new THREE.Color().setHSL(0.12, 1, 0.85); // Bright Yellow
       } else {
-        color = new THREE.Color(1.2, 1.2, 1.2); // Extra bright white sparks
+        color = new THREE.Color(1, 1, 1); // Bright white sparks
       }
 
       particles.push({

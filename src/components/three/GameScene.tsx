@@ -7,6 +7,7 @@ import { HexMap } from './HexMap';
 import { Starfield } from './Starfield';
 import { SpaceDust } from './SpaceDust';
 import { EnergyGrid } from './EnergyGrid';
+import { EFFECT_SETTINGS } from './effectSettings';
 import { GAME } from '@/game/constants';
 
 // Calculate the world bounds of the hex map
@@ -75,12 +76,16 @@ export function GameScene() {
       <HexMap />
       <EffectComposer>
         <Bloom
-          intensity={0.8}
-          luminanceThreshold={0.6}
-          luminanceSmoothing={0.9}
+          intensity={EFFECT_SETTINGS.bloom.intensity}
+          luminanceThreshold={EFFECT_SETTINGS.bloom.luminanceThreshold}
+          luminanceSmoothing={EFFECT_SETTINGS.bloom.luminanceSmoothing}
           mipmapBlur
         />
-        <Vignette eskil={false} offset={0.1} darkness={0.4} />
+        <Vignette
+          eskil={false}
+          offset={EFFECT_SETTINGS.vignette.offset}
+          darkness={EFFECT_SETTINGS.vignette.darkness}
+        />
       </EffectComposer>
     </Canvas>
   );

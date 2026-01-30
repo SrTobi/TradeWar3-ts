@@ -8,6 +8,7 @@ import { gameClient, ServerConfig } from '@/network/client';
 import { GAME } from '@/game/constants';
 import { Starfield } from '@/components/three/Starfield';
 import { SpaceDust } from '@/components/three/SpaceDust';
+import { EFFECT_SETTINGS } from '@/components/three/effectSettings';
 import type { GameInfo } from '@/network/messages';
 import { playClick, resumeAudio } from '@/audio/sounds';
 
@@ -356,12 +357,16 @@ export function MainMenu() {
           <SpaceDust />
           <EffectComposer>
             <Bloom
-              intensity={1.0}
-              luminanceThreshold={0.5}
-              luminanceSmoothing={0.9}
+              intensity={EFFECT_SETTINGS.bloom.intensity}
+              luminanceThreshold={EFFECT_SETTINGS.bloom.luminanceThreshold}
+              luminanceSmoothing={EFFECT_SETTINGS.bloom.luminanceSmoothing}
               mipmapBlur
             />
-            <Vignette eskil={false} offset={0.15} darkness={0.5} />
+            <Vignette
+              eskil={false}
+              offset={EFFECT_SETTINGS.vignette.offset}
+              darkness={EFFECT_SETTINGS.vignette.darkness}
+            />
           </EffectComposer>
         </Canvas>
       </div>
