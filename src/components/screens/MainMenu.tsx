@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { useUIStore } from '@/store/uiStore';
 import { useGameStore } from '@/store/gameStore';
 import { gameClient, ServerConfig } from '@/network/client';
 import { GAME } from '@/game/constants';
 import { Starfield } from '@/components/three/Starfield';
+import { SpaceDust } from '@/components/three/SpaceDust';
 import type { GameInfo } from '@/network/messages';
 import { playClick, resumeAudio } from '@/audio/sounds';
 
@@ -351,6 +353,16 @@ export function MainMenu() {
           <OrthographicCamera makeDefault position={[0, 0, 10]} zoom={50} near={0.1} far={100} />
           <color attach="background" args={['#050508']} />
           <Starfield />
+          <SpaceDust />
+          <EffectComposer>
+            <Bloom
+              intensity={1.0}
+              luminanceThreshold={0.5}
+              luminanceSmoothing={0.9}
+              mipmapBlur
+            />
+            <Vignette eskil={false} offset={0.15} darkness={0.5} />
+          </EffectComposer>
         </Canvas>
       </div>
 

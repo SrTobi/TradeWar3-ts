@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrthographicCamera } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { HexMap } from './HexMap';
 import { Starfield } from './Starfield';
+import { SpaceDust } from './SpaceDust';
+import { EnergyGrid } from './EnergyGrid';
 import { GAME } from '@/game/constants';
 
 // Calculate the world bounds of the hex map
@@ -66,8 +69,19 @@ export function GameScene() {
       <OrthographicCamera makeDefault position={[0, 0, 10]} zoom={50} near={0.1} far={100} />
       <CameraController />
       <color attach="background" args={['#050508']} />
+      <EnergyGrid />
       <Starfield />
+      <SpaceDust />
       <HexMap />
+      <EffectComposer>
+        <Bloom
+          intensity={0.8}
+          luminanceThreshold={0.6}
+          luminanceSmoothing={0.9}
+          mipmapBlur
+        />
+        <Vignette eskil={false} offset={0.1} darkness={0.4} />
+      </EffectComposer>
     </Canvas>
   );
 }
