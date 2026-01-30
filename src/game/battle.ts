@@ -78,7 +78,9 @@ export function processBattle(country: Country, countries: Country[], now: numbe
     );
 
     const effectiveCasualtyRate = Math.max(0, casualtyRate - territorialAdvantage);
-    const casualties = Math.floor(enemyUnits * effectiveCasualtyRate * Math.random());
+    const fractionalCasualties = enemyUnits * effectiveCasualtyRate;
+    const definiteCasulties = Math.floor(fractionalCasualties);
+    const casualties = definiteCasulties + (Math.random() < fractionalCasualties % 1 ? 1 : 0);
     newUnits[factionId] = Math.max(0, country.units[factionId] - casualties);
   }
 
