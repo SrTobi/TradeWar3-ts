@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { useUIStore } from '@/store/uiStore';
 import { useGameStore } from '@/store/gameStore';
 import { gameClient, ServerConfig } from '@/network/client';
 import { GAME } from '@/game/constants';
 import { Starfield } from '@/components/three/Starfield';
+import { SpaceDust } from '@/components/three/SpaceDust';
+import { EFFECT_SETTINGS } from '@/components/three/effectSettings';
 import type { GameInfo } from '@/network/messages';
 import { playClick, resumeAudio } from '@/audio/sounds';
 
@@ -351,6 +354,20 @@ export function MainMenu() {
           <OrthographicCamera makeDefault position={[0, 0, 10]} zoom={50} near={0.1} far={100} />
           <color attach="background" args={['#050508']} />
           <Starfield />
+          <SpaceDust />
+          <EffectComposer>
+            <Bloom
+              intensity={EFFECT_SETTINGS.bloom.intensity}
+              luminanceThreshold={EFFECT_SETTINGS.bloom.luminanceThreshold}
+              luminanceSmoothing={EFFECT_SETTINGS.bloom.luminanceSmoothing}
+              mipmapBlur
+            />
+            <Vignette
+              eskil={false}
+              offset={EFFECT_SETTINGS.vignette.offset}
+              darkness={EFFECT_SETTINGS.vignette.darkness}
+            />
+          </EffectComposer>
         </Canvas>
       </div>
 

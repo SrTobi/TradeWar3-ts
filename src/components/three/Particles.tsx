@@ -29,9 +29,9 @@ interface ParticlesProps {
   size: number;
 }
 
-const MAX_PARTICLES = 500;
-const PARTICLES_PER_BATTLE = 25;
-const MAX_EXPLOSIONS = 20;
+const MAX_PARTICLES = 600;
+const PARTICLES_PER_BATTLE = 35;
+const MAX_EXPLOSIONS = 25;
 
 export function Particles({ countries, size }: ParticlesProps) {
   const particlesRef = useRef<Particle[]>([]);
@@ -85,17 +85,17 @@ export function Particles({ countries, size }: ParticlesProps) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 1.5 + Math.random() * 3;
 
-      // Vary colors: orange, red, yellow, white
+      // Vary colors: bright orange, red, yellow, white - enhanced for bloom
       const colorVariant = Math.random();
       let color: THREE.Color;
-      if (colorVariant < 0.4) {
-        color = new THREE.Color().setHSL(0.08, 1, 0.6); // Orange
-      } else if (colorVariant < 0.7) {
-        color = new THREE.Color().setHSL(0.05, 1, 0.55); // Red-orange
-      } else if (colorVariant < 0.9) {
-        color = new THREE.Color().setHSL(0.12, 1, 0.7); // Yellow
+      if (colorVariant < 0.35) {
+        color = new THREE.Color().setHSL(0.08, 1, 0.75); // Bright Orange
+      } else if (colorVariant < 0.6) {
+        color = new THREE.Color().setHSL(0.05, 1, 0.7); // Bright Red-orange
+      } else if (colorVariant < 0.85) {
+        color = new THREE.Color().setHSL(0.12, 1, 0.85); // Bright Yellow
       } else {
-        color = new THREE.Color(1, 1, 1); // White sparks
+        color = new THREE.Color(1, 1, 1); // Bright white sparks
       }
 
       particles.push({
@@ -106,7 +106,7 @@ export function Particles({ countries, size }: ParticlesProps) {
         life: 0,
         maxLife: 0.4 + Math.random() * 0.6,
         color,
-        size: 0.06 + Math.random() * 0.1,
+        size: 0.07 + Math.random() * 0.12,
       });
     }
   }
