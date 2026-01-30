@@ -131,13 +131,15 @@ export const useUIStore = create<UIStore>((set) => ({
   volumeSettings: loadVolumeSettings(),
   setMusicVolume: (volume) =>
     set((s) => {
-      const newSettings = { ...s.volumeSettings, musicVolume: volume };
+      const clampedVolume = Math.max(0, Math.min(1, volume));
+      const newSettings = { ...s.volumeSettings, musicVolume: clampedVolume };
       saveVolumeSettings(newSettings);
       return { volumeSettings: newSettings };
     }),
   setSoundVolume: (volume) =>
     set((s) => {
-      const newSettings = { ...s.volumeSettings, soundVolume: volume };
+      const clampedVolume = Math.max(0, Math.min(1, volume));
+      const newSettings = { ...s.volumeSettings, soundVolume: clampedVolume };
       saveVolumeSettings(newSettings);
       return { volumeSettings: newSettings };
     }),

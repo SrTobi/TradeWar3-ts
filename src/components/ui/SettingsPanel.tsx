@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { setMusicVolume } from '@/hooks/useMusic';
 import { setSoundVolume, playClick } from '@/audio/sounds';
@@ -86,11 +86,27 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [musicVol, setMusicVol] = useState(volumeSettings.musicVolume);
   const [soundVol, setSoundVol] = useState(volumeSettings.soundVolume);
 
-  // Apply volume settings on mount and when changed
+  // Sync local state if volumeSettings changes externally
   useEffect(() => {
-    setMusicVolume(volumeSettings.musicVolume);
-    setSoundVolume(volumeSettings.soundVolume);
-  }, [volumeSettings]);
+    setMusicVol(volumeSettings.musicVolume);
+    setSoundVol(volumeSettings.soundVolume);
+  }, [volumeSettings.musicVolume, volumeSettings.soundVolume]);
+
+  const handleClose = useCallback(() => {
+    playClick();
+    onClose();
+  }, [onClose]);
+
+  // Handle Escape key to close the panel
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleClose]);
 
   const handleMusicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
@@ -111,11 +127,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     playClick();
   };
 
-  const handleClose = () => {
-    playClick();
-    onClose();
-  };
-
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       handleClose();
@@ -124,12 +135,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
   return (
     <div style={overlayStyle} onClick={handleOverlayClick}>
-      <div style={panelStyle}>
-        <h2 style={titleStyle}>⚙ SETTINGS</h2>
+      <div style={panelStyle} role="dialog" aria-labelledby="settings-title">
+        <h2 id="settings-title" style={titleStyle}>⚙ SETTINGS</h2>
 
         <div style={sliderContainerStyle}>
           <div style={labelStyle}>
-            <span>🎵 Music Volume</span>
+            <span id="music-label">🎵 Music Volume</span>
             <span>{Math.round(musicVol * 100)}%</span>
           </div>
           <input
@@ -140,12 +151,16 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             value={musicVol}
             onChange={handleMusicChange}
             style={sliderStyle}
+            aria-labelledby="music-label"
+            aria-valuenow={Math.round(musicVol * 100)}
+            aria-valuemin={0}
+            aria-valuemax={100}
           />
         </div>
 
         <div style={sliderContainerStyle}>
           <div style={labelStyle}>
-            <span>🔊 Sound Effects</span>
+            <span id="sound-label">🔊 Sound Effects</span>
             <span>{Math.round(soundVol * 100)}%</span>
           </div>
           <input
@@ -158,6 +173,10 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             onMouseUp={handleSoundMouseUp}
             onTouchEnd={handleSoundMouseUp}
             style={sliderStyle}
+            aria-labelledby="sound-label"
+            aria-valuenow={Math.round(soundVol * 100)}
+            aria-valuemin={0}
+            aria-valuemax={100}
           />
         </div>
 

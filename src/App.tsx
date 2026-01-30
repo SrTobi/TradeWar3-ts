@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { MainMenu } from '@/components/screens/MainMenu';
 import { Lobby } from '@/components/screens/Lobby';
@@ -10,14 +10,18 @@ import { SettingsButton } from '@/components/ui/SettingsButton';
 export function App() {
   const screen = useUIStore((s) => s.screen);
   const volumeSettings = useUIStore((s) => s.volumeSettings);
+  const initializedRef = useRef(false);
 
   // Initialize music system
   useMusic();
 
-  // Initialize volume settings from store on mount
+  // Initialize volume settings from store on mount only
   useEffect(() => {
-    setMusicVolume(volumeSettings.musicVolume);
-    setSoundVolume(volumeSettings.soundVolume);
+    if (!initializedRef.current) {
+      setMusicVolume(volumeSettings.musicVolume);
+      setSoundVolume(volumeSettings.soundVolume);
+      initializedRef.current = true;
+    }
   }, [volumeSettings.musicVolume, volumeSettings.soundVolume]);
 
   const renderScreen = () => {
