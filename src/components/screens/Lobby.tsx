@@ -35,18 +35,19 @@ const contentStyle: React.CSSProperties = {
 };
 
 const titleStyle: React.CSSProperties = {
-  fontSize: '52px',
+  fontSize: 'clamp(28px, 8vw, 52px)',
   fontWeight: 'bold',
   color: '#88bbee',
   marginBottom: '8px',
   textShadow: '0 0 30px rgba(136, 187, 238, 0.5), 0 4px 8px rgba(0,0,0,0.8)',
-  letterSpacing: '4px',
+  letterSpacing: 'clamp(2px, 1vw, 4px)',
+  textAlign: 'center',
 };
 
 const subtitleStyle: React.CSSProperties = {
-  fontSize: '18px',
+  fontSize: 'clamp(14px, 3vw, 18px)',
   color: '#667788',
-  marginBottom: '32px',
+  marginBottom: 'clamp(16px, 4vw, 32px)',
   fontStyle: 'italic',
 };
 
@@ -54,19 +55,21 @@ const playerContainerStyle: React.CSSProperties = {
   background: 'rgba(15, 20, 30, 0.9)',
   borderRadius: '12px',
   border: '2px solid rgba(77, 102, 128, 0.4)',
-  padding: '20px',
-  minWidth: '400px',
+  padding: 'clamp(12px, 3vw, 20px)',
+  width: '90vw',
+  maxWidth: '400px',
   minHeight: '150px',
-  marginBottom: '32px',
+  marginBottom: 'clamp(16px, 4vw, 32px)',
 };
 
 const playerRowStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '12px',
-  padding: '10px 16px',
+  gap: 'clamp(6px, 2vw, 12px)',
+  padding: 'clamp(6px, 2vw, 10px) clamp(8px, 2vw, 16px)',
   borderRadius: '6px',
   marginBottom: '8px',
+  flexWrap: 'wrap',
 };
 
 const colorBoxStyle: React.CSSProperties = {
@@ -77,8 +80,8 @@ const colorBoxStyle: React.CSSProperties = {
 };
 
 const buttonStyle: React.CSSProperties = {
-  padding: '16px 40px',
-  fontSize: '18px',
+  padding: 'clamp(10px, 2vw, 16px) clamp(20px, 5vw, 40px)',
+  fontSize: 'clamp(14px, 3vw, 18px)',
   fontWeight: 'bold',
   background: 'linear-gradient(180deg, rgba(51, 85, 51, 1) 0%, rgba(35, 65, 35, 1) 100%)',
   border: '2px solid rgba(85, 153, 85, 0.6)',
@@ -92,8 +95,8 @@ const buttonStyle: React.CSSProperties = {
 
 const leaveButtonStyle: React.CSSProperties = {
   ...buttonStyle,
-  padding: '12px 28px',
-  fontSize: '14px',
+  padding: 'clamp(8px, 2vw, 12px) clamp(16px, 4vw, 28px)',
+  fontSize: 'clamp(12px, 2.5vw, 14px)',
   background: 'linear-gradient(180deg, rgba(85, 51, 51, 1) 0%, rgba(65, 35, 35, 1) 100%)',
   border: '2px solid rgba(153, 85, 85, 0.6)',
   marginTop: '16px',
@@ -101,8 +104,8 @@ const leaveButtonStyle: React.CSSProperties = {
 
 const addAiButtonStyle: React.CSSProperties = {
   ...buttonStyle,
-  padding: '10px 20px',
-  fontSize: '13px',
+  padding: 'clamp(6px, 1.5vw, 10px) clamp(12px, 3vw, 20px)',
+  fontSize: 'clamp(11px, 2.5vw, 13px)',
   background: 'linear-gradient(180deg, rgba(68, 85, 102, 1) 0%, rgba(51, 65, 80, 1) 100%)',
   border: '2px solid rgba(102, 136, 170, 0.6)',
   marginTop: '8px',
@@ -110,7 +113,7 @@ const addAiButtonStyle: React.CSSProperties = {
 
 const waitingStyle: React.CSSProperties = {
   color: '#778899',
-  fontSize: '16px',
+  fontSize: 'clamp(13px, 3vw, 16px)',
   fontStyle: 'italic',
 };
 

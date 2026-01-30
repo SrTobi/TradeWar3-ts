@@ -37,37 +37,38 @@ const contentStyle: React.CSSProperties = {
 };
 
 const titleStyle: React.CSSProperties = {
-  fontSize: '72px',
+  fontSize: 'clamp(36px, 10vw, 72px)',
   fontWeight: 'bold',
   color: '#88bbee',
   marginBottom: '0',
   textShadow: '0 0 30px rgba(136, 187, 238, 0.5), 0 4px 8px rgba(0,0,0,0.8)',
-  letterSpacing: '8px',
+  letterSpacing: 'clamp(2px, 1vw, 8px)',
 };
 
 const subtitleStyle: React.CSSProperties = {
-  fontSize: '42px',
+  fontSize: 'clamp(24px, 6vw, 42px)',
   fontWeight: 'bold',
   color: '#ddaa44',
-  marginBottom: '30px',
+  marginBottom: 'clamp(15px, 4vw, 30px)',
   textShadow: '0 0 20px rgba(221, 170, 68, 0.4), 0 3px 6px rgba(0,0,0,0.6)',
-  letterSpacing: '12px',
+  letterSpacing: 'clamp(4px, 2vw, 12px)',
 };
 
 const panelStyle: React.CSSProperties = {
   background: 'rgba(15, 20, 30, 0.9)',
   border: '2px solid rgba(77, 102, 128, 0.5)',
   borderRadius: '12px',
-  padding: '24px',
-  width: '480px',
+  padding: 'clamp(12px, 3vw, 24px)',
+  width: '90vw',
+  maxWidth: '480px',
   display: 'flex',
   flexDirection: 'column',
-  gap: '16px',
+  gap: 'clamp(10px, 2vw, 16px)',
 };
 
 const inputStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  fontSize: '15px',
+  padding: 'clamp(8px, 2vw, 12px) clamp(10px, 2vw, 16px)',
+  fontSize: 'clamp(14px, 3vw, 15px)',
   background: 'rgba(30, 38, 56, 0.9)',
   border: '2px solid rgba(77, 102, 128, 0.5)',
   borderRadius: '8px',
@@ -79,8 +80,8 @@ const inputStyle: React.CSSProperties = {
 };
 
 const buttonStyle: React.CSSProperties = {
-  padding: '12px 20px',
-  fontSize: '15px',
+  padding: 'clamp(8px, 2vw, 12px) clamp(12px, 3vw, 20px)',
+  fontSize: 'clamp(13px, 3vw, 15px)',
   fontWeight: 'bold',
   background: 'linear-gradient(180deg, rgba(51, 64, 89, 1) 0%, rgba(35, 45, 65, 1) 100%)',
   border: '2px solid rgba(85, 119, 153, 0.6)',
@@ -94,8 +95,8 @@ const buttonStyle: React.CSSProperties = {
 
 const hostButtonStyle: React.CSSProperties = {
   ...buttonStyle,
-  padding: '14px 24px',
-  fontSize: '16px',
+  padding: 'clamp(10px, 2vw, 14px) clamp(16px, 4vw, 24px)',
+  fontSize: 'clamp(14px, 3vw, 16px)',
   background: 'linear-gradient(180deg, rgba(51, 85, 51, 1) 0%, rgba(35, 65, 35, 1) 100%)',
   border: '2px solid rgba(85, 153, 85, 0.6)',
   letterSpacing: '2px',
@@ -112,7 +113,7 @@ const gameListStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '8px',
-  maxHeight: '250px',
+  maxHeight: 'clamp(150px, 30vh, 250px)',
   overflowY: 'auto',
 };
 
@@ -120,10 +121,11 @@ const gameItemStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '12px 16px',
+  padding: 'clamp(8px, 2vw, 12px) clamp(10px, 2vw, 16px)',
   background: 'rgba(30, 40, 55, 0.8)',
   borderRadius: '8px',
   border: '1px solid rgba(60, 80, 100, 0.5)',
+  gap: '8px',
 };
 
 const gameInfoStyle: React.CSSProperties = {
@@ -133,13 +135,13 @@ const gameInfoStyle: React.CSSProperties = {
 };
 
 const gameNameStyle: React.CSSProperties = {
-  fontSize: '15px',
+  fontSize: 'clamp(13px, 3vw, 15px)',
   fontWeight: 'bold',
   color: '#e0e8f0',
 };
 
 const gameDetailsStyle: React.CSSProperties = {
-  fontSize: '12px',
+  fontSize: 'clamp(10px, 2.5vw, 12px)',
   color: '#8899aa',
 };
 

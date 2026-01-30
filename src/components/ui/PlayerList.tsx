@@ -4,29 +4,30 @@ import { getFactionColor, getConnectionStatusColor } from '@/types/game';
 
 const containerStyle: React.CSSProperties = {
   position: 'absolute',
-  top: '16px',
-  right: '16px',
+  top: 'clamp(8px, 2vw, 16px)',
+  right: 'clamp(8px, 2vw, 16px)',
   display: 'flex',
   flexDirection: 'column',
   gap: '4px',
+  maxWidth: 'calc(100vw - 16px)',
 };
 
 const playerStyle: React.CSSProperties = {
-  padding: '6px 12px',
+  padding: 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 12px)',
   borderRadius: '4px',
-  fontSize: '14px',
+  fontSize: 'clamp(10px, 2.5vw, 14px)',
   fontWeight: 'bold',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  gap: '8px',
+  gap: 'clamp(4px, 1vw, 8px)',
 };
 
 const pingContainerStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '4px',
-  fontSize: '11px',
+  gap: 'clamp(2px, 0.5vw, 4px)',
+  fontSize: 'clamp(9px, 2vw, 11px)',
   fontWeight: 'normal',
   opacity: 0.9,
 };
