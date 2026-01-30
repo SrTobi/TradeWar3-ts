@@ -1,6 +1,8 @@
 import { useRef, useEffect } from 'react';
 import { useGameStore } from '@/store/gameStore';
+import { useUIStore } from '@/store/uiStore';
 import { calculateBulkUpgradeCost } from '@/game/stock';
+import { getEffectiveUnitCost } from '@/game/constants';
 import { playBuy, playSell, playUpgrade } from '@/audio/sounds';
 
 const HISTORY_LENGTH = 20;
@@ -236,6 +238,7 @@ export function StockPanel() {
   const buyStock = useGameStore((s) => s.buyStock);
   const sellStock = useGameStore((s) => s.sellStock);
   const upgradeBulk = useGameStore((s) => s.upgradeBulk);
+  const playerName = useUIStore((s) => s.playerName);
 
   // Track price history for each company
   const priceHistoryRef = useRef<Map<string, number[]>>(new Map());
@@ -261,6 +264,7 @@ export function StockPanel() {
   if (!gameState) return null;
 
   const upgradeCost = calculateBulkUpgradeCost(local.bulkAmount);
+  const effectiveUnitCost = getEffectiveUnitCost(gameState.unitCost, playerName);
 
   const devMode = window.location.hostname === 'localhost';
 
@@ -296,7 +300,7 @@ export function StockPanel() {
             </button>
           )}
         </div>
-        <span style={unitCostStyle}>Unit: {gameState.unitCost.toLocaleString()}</span>
+        <span style={unitCostStyle}>Unit: {effectiveUnitCost.toLocaleString()}</span>
       </div>
 
       <div style={separatorStyle} />

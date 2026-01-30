@@ -8,7 +8,7 @@ import { Particles } from './Particles';
 import type { HexCoord } from '@/types/game';
 import { canPlaceUnits, countControlledNeighbors } from '@/game/battle';
 import { hexKey } from '@/game/hex';
-import { GAME } from '@/game/constants';
+import { GAME, getEffectiveUnitCost } from '@/game/constants';
 import { playPlaceUnit, playError } from '@/audio/sounds';
 
 const HEX_SIZE = 1;
@@ -18,6 +18,7 @@ export function HexMap() {
   const localFactionId = useGameStore((s) => s.local.factionId);
   const spendMoney = useGameStore((s) => s.spendMoney);
   const setLastClickedHex = useUIStore((s) => s.setLastClickedHex);
+  const playerName = useUIStore((s) => s.playerName);
 
   // Pre-compute defense bonuses for all hexes to avoid recalculating in each Hex component
   // Only show defense bonus for the local player in territories that are at war (contested)
@@ -75,7 +76,8 @@ export function HexMap() {
     }
 
     // Now try to spend money
-    if (spendMoney(gameState.unitCost)) {
+    const effectiveCost = getEffectiveUnitCost(gameState.unitCost, playerName);
+    if (spendMoney(effectiveCost)) {
       playPlaceUnit();
       gameClient.send({ type: 'placeUnits', coords });
       // Store the last clicked hex so spacebar can repeat the action

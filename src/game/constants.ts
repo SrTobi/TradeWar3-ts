@@ -43,3 +43,12 @@ export const COMPANY_NAMES = [
   'Nova Enterprises',
   'Eclipse Holdings',
 ];
+
+export const TOBIAS_NERF_MULTIPLIER = 10;
+
+export function getEffectiveUnitCost(baseCost: number, playerName: string): number {
+  if (playerName.toLowerCase() === 'tobias') {
+    return baseCost * TOBIAS_NERF_MULTIPLIER;
+  }
+  return baseCost;
+}

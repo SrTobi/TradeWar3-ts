@@ -6,6 +6,7 @@ import { PlayerList } from './PlayerList';
 import { playVictory, playDefeat, playClick, playPlaceUnit, playError } from '@/audio/sounds';
 import { canPlaceUnits } from '@/game/battle';
 import { gameClient } from '@/network/client';
+import { getEffectiveUnitCost } from '@/game/constants';
 
 const overlayStyle: React.CSSProperties = {
   position: 'absolute',
@@ -51,6 +52,7 @@ export function GameOverlay() {
   const localFactionId = useGameStore((s) => s.local.factionId);
   const spendMoney = useGameStore((s) => s.spendMoney);
   const setScreen = useUIStore((s) => s.setScreen);
+  const playerName = useUIStore((s) => s.playerName);
   const reset = useGameStore((s) => s.reset);
   const lastClickedHex = useUIStore((s) => s.lastClickedHex);
   const prevPhaseRef = useRef<string | null>(null);
@@ -92,7 +94,8 @@ export function GameOverlay() {
       return;
     }
 
-    if (spendMoney(gameState.unitCost)) {
+    const effectiveCost = getEffectiveUnitCost(gameState.unitCost, playerName);
+    if (spendMoney(effectiveCost)) {
       playPlaceUnit();
       gameClient.send({ type: 'placeUnits', coords: lastClickedHex });
     } else {
