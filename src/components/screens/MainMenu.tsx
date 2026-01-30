@@ -186,7 +186,7 @@ const emptyStyle: React.CSSProperties = {
 function getServerConfig(): ServerConfig {
   const params = new URLSearchParams(window.location.search);
   const server = params.get('server');
-  
+
   if (server) {
     // Explicit server specified in URL - parse it
     // Supports: "host:port", "host/path", or just "host"
@@ -208,7 +208,7 @@ function getServerConfig(): ServerConfig {
       return { address: server, port: GAME.SERVER_PORT };
     }
   }
-  
+
   // Auto-detect based on protocol
   if (window.location.protocol === 'https:') {
     // HTTPS: Use path-based websocket connection via Caddy proxy
@@ -219,7 +219,7 @@ function getServerConfig(): ServerConfig {
     }
     return { address: window.location.hostname, path: '/ws' };
   }
-  
+
   // HTTP (local dev): Use direct port connection
   return { address: window.location.hostname, port: GAME.SERVER_PORT };
 }
@@ -358,9 +358,7 @@ export function MainMenu() {
 
         <div style={panelStyle}>
           {connecting ? (
-            <div style={statusStyle}>
-              Connecting to {formatServerConfig(server)}...
-            </div>
+            <div style={statusStyle}>Connecting to {formatServerConfig(server)}...</div>
           ) : !connected ? (
             <div style={errorStyle}>{error || 'Not connected'}</div>
           ) : (

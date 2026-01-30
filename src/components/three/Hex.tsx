@@ -300,7 +300,12 @@ export function Hex({ country, defenseBonus, size, onClick }: HexProps) {
           </mesh>
           {/* Badge border highlight */}
           <mesh geometry={defenseBadgeGeometry} position={[0, 0, 0.005]}>
-            <meshBasicMaterial color={lighten(baseColor, 0.1)} transparent opacity={0.5} wireframe />
+            <meshBasicMaterial
+              color={lighten(baseColor, 0.1)}
+              transparent
+              opacity={0.5}
+              wireframe
+            />
           </mesh>
           {/* Defense bonus text */}
           <Text

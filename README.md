@@ -5,10 +5,10 @@ A space trading game built with React, Three.js, and TypeScript.
 ## Screenshots
 
 ![Title Screen](screenshots/title-screen.png)
-*Game lobby - Create or join a game as a galactic commander*
+_Game lobby - Create or join a game as a galactic commander_
 
 ![Galactic Exchange](screenshots/galactic-exchange.png)
-*Galactic Exchange - Trade stocks and conquer the galaxy*
+_Galactic Exchange - Trade stocks and conquer the galaxy_
 
 ## Development
 
@@ -32,11 +32,13 @@ The live version is available at: https://srtobi.github.io/TradeWar3-ts/
 ### GitHub Pages Setup
 
 The deployment is handled by a GitHub Actions workflow (`.github/workflows/deploy.yml`) that:
+
 1. Builds the project using Vite
 2. Uploads the build artifacts
 3. Deploys to GitHub Pages
 
 To enable GitHub Pages for this repository:
+
 1. Go to repository Settings → Pages
 2. Under "Build and deployment", select "GitHub Actions" as the source
 3. The site will be automatically deployed on the next push to `main`
@@ -63,6 +65,7 @@ The project can also be deployed to a Hetzner VPS using the GitHub Actions workf
    - `DOMAIN`: Your domain name (e.g., `tradewar.example.com`) - **required for HTTPS**
 
 3. Ensure Node.js is installed on your Hetzner VPS:
+
    ```bash
    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
    sudo apt-get install -y nodejs
@@ -79,11 +82,13 @@ The project can also be deployed to a Hetzner VPS using the GitHub Actions workf
 #### HTTPS Support
 
 When the `DOMAIN` secret is configured, the deployment automatically installs and configures [Caddy](https://caddyserver.com/) as a reverse proxy, which provides:
+
 - **Automatic HTTPS certificates** from Let's Encrypt
 - **Automatic certificate renewal**
 - **Secure WebSocket connections (WSS)** for the game server
 
 When deployed with a domain:
+
 - The frontend is served over HTTPS on port 443
 - HTTP requests on port 80 are automatically redirected to HTTPS
 - WebSocket connections use the secure `wss://` protocol via the `/ws` path
@@ -94,6 +99,7 @@ When deployed with a domain:
 #### Ports
 
 The application exposes:
+
 - Port 80: HTTP (automatically redirects to HTTPS when a valid domain is configured)
 - Port 443: HTTPS (frontend and secure WebSocket)
 - Port 12346: WebSocket game server (direct access, used when no domain is configured)
@@ -109,6 +115,7 @@ https://srtobi.github.io/TradeWar3-ts/?server=your-domain.com/ws
 ```
 
 The `server` parameter supports several formats:
+
 - `your-domain.com/ws` - Path-based connection (for Caddy proxy with HTTPS)
 - `your-domain.com:12346` - Port-based connection (for direct connection)
 - `your-domain.com` - Uses default port 12346

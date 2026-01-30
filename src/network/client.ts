@@ -21,7 +21,7 @@ export class GameClient {
   connect(config: ServerConfig): Promise<void> {
     // Use wss:// for secure connections (HTTPS pages), ws:// for local development
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    
+
     let url: string;
     if (config.path) {
       // Path-based connection (e.g., wss://example.com/ws) for Caddy proxy
@@ -32,7 +32,7 @@ export class GameClient {
     } else {
       throw new Error('Either port or path must be specified');
     }
-    
+
     console.log(`Connecting to ${url}`);
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(url);
