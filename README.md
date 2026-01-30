@@ -2,6 +2,8 @@
 
 A space trading game built with React, Three.js, and TypeScript.
 
+[Try it here](https://srtobi.github.io/TradeWar3-ts/)
+
 ## Screenshots
 
 ![Title Screen](screenshots/title-screen.png)
