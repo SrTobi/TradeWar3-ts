@@ -6,7 +6,7 @@ import { Hex } from './Hex';
 import { Connections } from './Connections';
 import { Particles } from './Particles';
 import type { HexCoord } from '@/types/game';
-import { canPlaceUnits, getCountryOwner, countControlledNeighbors } from '@/game/battle';
+import { canPlaceUnits, countControlledNeighbors } from '@/game/battle';
 import { hexKey } from '@/game/hex';
 import { GAME } from '@/game/constants';
 import { playPlaceUnit, playError } from '@/audio/sounds';
@@ -20,17 +20,33 @@ export function HexMap() {
   const setLastClickedHex = useUIStore((s) => s.setLastClickedHex);
 
   // Pre-compute defense bonuses for all hexes to avoid recalculating in each Hex component
+  // Only show defense bonus for the local player in territories that are at war (contested)
   const defenseBonusMap = useMemo(() => {
-    if (!gameState) return new Map<string, number>();
+    if (!gameState || !localFactionId) return new Map<string, number>();
 
     const bonusMap = new Map<string, number>();
     for (const country of gameState.countries) {
-      const owner = getCountryOwner(country);
-      if (owner === 'neutral') {
+      // Check if the local player has units in this country
+      const localUnits = country.units[localFactionId] ?? 0;
+      if (localUnits <= 0) {
         bonusMap.set(hexKey(country.coords), 0);
         continue;
       }
-      const controlledNeighbors = countControlledNeighbors(country, gameState.countries, owner);
+
+      // Check if the country is at war (multiple factions with units)
+      const factionsInCountry = Object.keys(country.units).filter((id) => country.units[id] > 0);
+      const isAtWar = factionsInCountry.length > 1;
+      if (!isAtWar) {
+        bonusMap.set(hexKey(country.coords), 0);
+        continue;
+      }
+
+      // Calculate the local player's territorial advantage
+      const controlledNeighbors = countControlledNeighbors(
+        country,
+        gameState.countries,
+        localFactionId
+      );
       const bonus = Math.min(
         controlledNeighbors * GAME.TERRITORIAL_ADVANTAGE_PER_NEIGHBOR,
         GAME.MAX_TERRITORIAL_ADVANTAGE
@@ -38,7 +54,7 @@ export function HexMap() {
       bonusMap.set(hexKey(country.coords), bonus);
     }
     return bonusMap;
-  }, [gameState]);
+  }, [gameState, localFactionId]);
 
   if (!gameState) return null;
 
@@ -80,6 +96,7 @@ export function HexMap() {
           key={`${country.coords.q},${country.coords.r}`}
           country={country}
           defenseBonus={defenseBonusMap.get(hexKey(country.coords)) ?? 0}
+          localFactionId={localFactionId}
           size={HEX_SIZE}
           onClick={() => handleHexClick(country.coords)}
         />
