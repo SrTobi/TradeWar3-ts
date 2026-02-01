@@ -57,7 +57,11 @@ function createRoundedRectShape(width: number, height: number, radius: number): 
   return shape;
 }
 
-// Create hex shape for extrusion
+// 3D depth effect constants
+const DEPTH_LAYER_1_OFFSET = { x: 0.03, y: -0.03, z: -0.05 };  // Back shadow layer
+const DEPTH_LAYER_2_OFFSET = { x: 0.015, y: -0.015, z: -0.02 }; // Middle shadow layer
+
+// Create hex shape for depth shadow layers
 function createHexShape(size: number): THREE.Shape {
   const shape = new THREE.Shape();
   for (let i = 0; i < 6; i++) {
@@ -240,7 +244,7 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
       )}
 
       {/* 3D depth layer - darker hex behind the main one for depth effect */}
-      <mesh geometry={hexDepthGeometry} position={[0.03, -0.03, -0.05]}>
+      <mesh geometry={hexDepthGeometry} position={[DEPTH_LAYER_1_OFFSET.x, DEPTH_LAYER_1_OFFSET.y, DEPTH_LAYER_1_OFFSET.z]}>
         <meshBasicMaterial
           color={darken(baseColor, 0.4)}
           transparent
@@ -249,7 +253,7 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
       </mesh>
 
       {/* Second depth layer for more 3D feel */}
-      <mesh geometry={hexDepthGeometry} position={[0.015, -0.015, -0.02]}>
+      <mesh geometry={hexDepthGeometry} position={[DEPTH_LAYER_2_OFFSET.x, DEPTH_LAYER_2_OFFSET.y, DEPTH_LAYER_2_OFFSET.z]}>
         <meshBasicMaterial
           color={darken(baseColor, 0.25)}
           transparent
