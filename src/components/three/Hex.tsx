@@ -57,6 +57,20 @@ function createRoundedRectShape(width: number, height: number, radius: number): 
   return shape;
 }
 
+// Create hex shape for extrusion
+function createHexShape(size: number): THREE.Shape {
+  const shape = new THREE.Shape();
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i;
+    const x = size * 0.95 * Math.cos(angle);
+    const y = size * 0.95 * Math.sin(angle);
+    if (i === 0) shape.moveTo(x, y);
+    else shape.lineTo(x, y);
+  }
+  shape.closePath();
+  return shape;
+}
+
 export function Hex({ country, defenseBonus, localFactionId, size, onClick }: HexProps) {
   const groupRef = useRef<THREE.Group>(null);
   const glowRingsRef = useRef<THREE.Group>(null);
@@ -116,6 +130,12 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     return geometry;
   }, [hexVertices, baseColor, isHovered]);
+
+  // 3D depth layer - simple hex shape offset behind the main hex
+  const hexDepthGeometry = useMemo(() => {
+    const hexShape = createHexShape(size);
+    return new THREE.ShapeGeometry(hexShape);
+  }, [size]);
 
   // Inner highlight ring (70% size)
   const innerRingGeometry = useMemo(() => {
@@ -205,7 +225,7 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
     <group ref={groupRef} position={position}>
       {/* Glow rings (behind main hex) */}
       {!isNeutral && (
-        <group ref={glowRingsRef} position={[0, 0, -0.1]}>
+        <group ref={glowRingsRef} position={[0, 0, -0.15]}>
           {glowRingGeometries.map((geo, i) => (
             <mesh key={i} geometry={geo}>
               <meshBasicMaterial
@@ -219,7 +239,25 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
         </group>
       )}
 
-      {/* Main hex with gradient */}
+      {/* 3D depth layer - darker hex behind the main one for depth effect */}
+      <mesh geometry={hexDepthGeometry} position={[0.03, -0.03, -0.05]}>
+        <meshBasicMaterial
+          color={darken(baseColor, 0.4)}
+          transparent
+          opacity={isHovered ? 0.9 : 0.7}
+        />
+      </mesh>
+
+      {/* Second depth layer for more 3D feel */}
+      <mesh geometry={hexDepthGeometry} position={[0.015, -0.015, -0.02]}>
+        <meshBasicMaterial
+          color={darken(baseColor, 0.25)}
+          transparent
+          opacity={isHovered ? 0.95 : 0.8}
+        />
+      </mesh>
+
+      {/* Main hex top face with gradient */}
       <mesh
         geometry={hexGeometry}
         onClick={onClick}

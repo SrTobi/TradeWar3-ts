@@ -70,6 +70,9 @@ export function GameScene() {
       <OrthographicCamera makeDefault position={[0, 0, 10]} zoom={50} near={0.1} far={100} />
       <CameraController />
       <color attach="background" args={['#050508']} />
+      {/* Lighting for 3D hex tiles */}
+      <ambientLight intensity={0.6} />
+      <directionalLight position={[5, 10, 7]} intensity={0.6} color="#ffffff" />
       <EnergyGrid />
       <Starfield />
       <SpaceDust />
