@@ -57,8 +57,8 @@ function createRoundedRectShape(width: number, height: number, radius: number): 
   return shape;
 }
 
-// 3D hex extrusion depth
-const HEX_DEPTH = 0.15;
+// 3D hex extrusion depth - real visible 3D!
+const HEX_DEPTH = 0.2;
 
 // Create hex shape for 3D extrusion
 function createHexShape(size: number): THREE.Shape {
@@ -104,35 +104,34 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
       bevelSize: 0.02,
       bevelSegments: 2,
     };
-    const geometry = new THREE.ExtrudeGeometry(hexShape, extrudeSettings);
-    // ExtrudeGeometry creates the extrusion along the positive Z axis by default,
-    // but the shape's "front face" ends up on the back. Rotate 180° around X-axis
-    // to flip the geometry so the top face (with proper normals) faces upward (+Z).
-    geometry.rotateX(Math.PI);
-    // After rotation, translate to position the base at z=0 and top at z=HEX_DEPTH
-    geometry.translate(0, 0, HEX_DEPTH);
-    return geometry;
+    return new THREE.ExtrudeGeometry(hexShape, extrudeSettings);
   }, [size]);
 
-  // Inner highlight ring (70% size) - flat geometry, positioned by group
+  // Top face geometry for the gradient effect
+  const hexTopGeometry = useMemo(() => {
+    const hexShape = createHexShape(size);
+    return new THREE.ShapeGeometry(hexShape);
+  }, [size]);
+
+  // Inner highlight ring (70% size)
   const innerRingGeometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
     for (let i = 0; i <= 6; i++) {
       const angle = (Math.PI / 3) * (i % 6);
       points.push(
-        new THREE.Vector3(size * 0.6 * Math.cos(angle), size * 0.6 * Math.sin(angle), 0)
+        new THREE.Vector3(size * 0.6 * Math.cos(angle), size * 0.6 * Math.sin(angle), 0.02)
       );
     }
     return new THREE.BufferGeometry().setFromPoints(points);
   }, [size]);
 
-  // Border geometry - flat, positioned by group
+  // Border geometry
   const borderGeometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
     for (let i = 0; i <= 6; i++) {
       const angle = (Math.PI / 3) * (i % 6);
       points.push(
-        new THREE.Vector3(size * 0.95 * Math.cos(angle), size * 0.95 * Math.sin(angle), 0)
+        new THREE.Vector3(size * 0.95 * Math.cos(angle), size * 0.95 * Math.sin(angle), 0.01)
       );
     }
     return new THREE.BufferGeometry().setFromPoints(points);
@@ -197,12 +196,14 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
 
   const unitEntries = Object.entries(country.units).filter(([, n]) => n > 0);
   const borderColor = isHovered ? new THREE.Color('#ffffff') : darken(baseColor, 0.3);
+  const sideColor = darken(baseColor, 0.3);
+  const topColor = isHovered ? lighten(baseColor, 0.15) : baseColor;
 
   return (
     <group ref={groupRef} position={position}>
       {/* Glow rings (behind main hex) */}
       {!isNeutral && (
-        <group ref={glowRingsRef} position={[0, 0, -0.05]}>
+        <group ref={glowRingsRef} position={[0, 0, -0.15]}>
           {glowRingGeometries.map((geo, i) => (
             <mesh key={i} geometry={geo}>
               <meshBasicMaterial
@@ -216,29 +217,34 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
         </group>
       )}
 
-      {/* Main 3D extruded hex tile */}
+      {/* 3D extruded hex - the sides */}
       <mesh
         geometry={hex3DGeometry}
         onClick={onClick}
         onPointerEnter={() => setHoveredHex(country.coords)}
         onPointerLeave={() => setHoveredHex(null)}
       >
-        <meshStandardMaterial
-          color={isHovered ? lighten(baseColor, 0.15) : baseColor}
-          roughness={0.4}
-          metalness={0.3}
-          emissive={baseColor}
-          emissiveIntensity={isNeutral ? 0.05 : 0.15}
-        />
+        <meshBasicMaterial color={sideColor} />
       </mesh>
 
-      {/* Border on top face */}
+      {/* Top face with brighter color */}
+      <mesh
+        geometry={hexTopGeometry}
+        position={[0, 0, HEX_DEPTH]}
+        onClick={onClick}
+        onPointerEnter={() => setHoveredHex(country.coords)}
+        onPointerLeave={() => setHoveredHex(null)}
+      >
+        <meshBasicMaterial color={topColor} transparent opacity={isHovered ? 1.0 : 0.95} />
+      </mesh>
+
+      {/* Border on top */}
       <lineLoop geometry={borderGeometry} position={[0, 0, HEX_DEPTH + 0.01]}>
         <lineBasicMaterial color={borderColor} linewidth={isHovered ? 3 : 2} />
       </lineLoop>
 
-      {/* Inner highlight on top face */}
-      <lineLoop ref={innerHighlightRef} geometry={innerRingGeometry} position={[0, 0, HEX_DEPTH + 0.02]}>
+      {/* Inner highlight */}
+      <lineLoop ref={innerHighlightRef} geometry={innerRingGeometry} position={[0, 0, HEX_DEPTH]}>
         <lineBasicMaterial color={lighten(baseColor, 0.4)} transparent opacity={0.4} />
       </lineLoop>
 

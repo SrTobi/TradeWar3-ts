@@ -159,22 +159,10 @@ export function Starfield() {
     const nebulas = nebulasRef.current;
     const shootingStar = shootingStarRef.current;
 
-    // Get actual camera bounds - works with both perspective and orthographic cameras
-    let actualHalfW: number;
-    let actualHalfH: number;
-    
-    if ((state.camera as THREE.OrthographicCamera).isOrthographicCamera) {
-      const camera = state.camera as THREE.OrthographicCamera;
-      actualHalfW = (camera.right - camera.left) / 2 / camera.zoom + 2;
-      actualHalfH = (camera.top - camera.bottom) / 2 / camera.zoom + 2;
-    } else {
-      // For perspective camera, estimate visible area at z=-1 (starfield depth)
-      const camera = state.camera as THREE.PerspectiveCamera;
-      const distance = camera.position.length();
-      const fov = camera.fov * (Math.PI / 180);
-      actualHalfH = Math.tan(fov / 2) * distance + 2;
-      actualHalfW = actualHalfH * camera.aspect + 2;
-    }
+    // Get actual camera bounds
+    const camera = state.camera as THREE.OrthographicCamera;
+    const actualHalfW = (camera.right - camera.left) / 2 / camera.zoom + 2;
+    const actualHalfH = (camera.top - camera.bottom) / 2 / camera.zoom + 2;
 
     // Update stars
     if (starMeshRef.current && stars.length > 0) {
