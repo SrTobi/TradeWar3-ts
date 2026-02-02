@@ -59,6 +59,9 @@ function createRoundedRectShape(width: number, height: number, radius: number): 
 
 // Real 3D hex extrusion depth
 const HEX_DEPTH = 0.15;
+// Z-offsets for overlay elements on top of the hex
+const INNER_RING_Z_OFFSET = 0.02;
+const BORDER_Z_OFFSET = 0.01;
 
 // Create hex shape for 3D extrusion
 function createHexShape(size: number): THREE.Shape {
@@ -147,7 +150,7 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
     for (let i = 0; i <= 6; i++) {
       const angle = (Math.PI / 3) * (i % 6);
       points.push(
-        new THREE.Vector3(size * 0.6 * Math.cos(angle), size * 0.6 * Math.sin(angle), 0.02)
+        new THREE.Vector3(size * 0.6 * Math.cos(angle), size * 0.6 * Math.sin(angle), INNER_RING_Z_OFFSET)
       );
     }
     return new THREE.BufferGeometry().setFromPoints(points);
@@ -159,7 +162,7 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
     for (let i = 0; i <= 6; i++) {
       const angle = (Math.PI / 3) * (i % 6);
       points.push(
-        new THREE.Vector3(size * 0.95 * Math.cos(angle), size * 0.95 * Math.sin(angle), 0.01)
+        new THREE.Vector3(size * 0.95 * Math.cos(angle), size * 0.95 * Math.sin(angle), BORDER_Z_OFFSET)
       );
     }
     return new THREE.BufferGeometry().setFromPoints(points);
