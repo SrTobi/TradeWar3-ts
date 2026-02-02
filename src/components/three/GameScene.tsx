@@ -20,6 +20,9 @@ const MAP_HEIGHT = (MAP_RADIUS * 2 + 1) * HEX_SIZE * Math.sqrt(3);
 const PADDING = 1.5; // Extra padding around the map
 const LEFT_PANEL_WIDTH = 520; // Width of StockPanel in pixels
 
+// Tilt the hex map to show real 3D depth (isometric-style view)
+const HEX_MAP_TILT = -Math.PI / 10; // ~18 degrees tilt for visible 3D effect
+
 function CameraController() {
   const { camera, size } = useThree();
   const cameraRef = useRef(camera as THREE.OrthographicCamera);
@@ -76,7 +79,10 @@ export function GameScene() {
       <EnergyGrid />
       <Starfield />
       <SpaceDust />
-      <HexMap />
+      {/* Tilt the hex map for visible 3D depth */}
+      <group rotation={[HEX_MAP_TILT, 0, 0]}>
+        <HexMap />
+      </group>
       <EffectComposer>
         <Bloom
           intensity={EFFECT_SETTINGS.bloom.intensity}

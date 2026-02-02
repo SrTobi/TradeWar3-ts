@@ -57,11 +57,13 @@ function createRoundedRectShape(width: number, height: number, radius: number): 
   return shape;
 }
 
-// 3D depth effect constants
-const DEPTH_LAYER_1_OFFSET = { x: 0.03, y: -0.03, z: -0.05 };  // Back shadow layer
-const DEPTH_LAYER_2_OFFSET = { x: 0.015, y: -0.015, z: -0.02 }; // Middle shadow layer
+// Real 3D hex extrusion depth
+const HEX_DEPTH = 0.15;
+// Z-offsets for overlay elements on top of the hex
+const INNER_RING_Z_OFFSET = 0.02;
+const BORDER_Z_OFFSET = 0.01;
 
-// Create hex shape for depth shadow layers
+// Create hex shape for 3D extrusion
 function createHexShape(size: number): THREE.Shape {
   const shape = new THREE.Shape();
   for (let i = 0; i < 6; i++) {
@@ -95,18 +97,21 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
 
   const baseColor = useMemo(() => new THREE.Color(getFactionColor(owner)), [owner]);
 
-  // Hex vertices for flat-top orientation
-  const hexVertices = useMemo(() => {
-    const verts: THREE.Vector2[] = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i;
-      verts.push(new THREE.Vector2(size * 0.95 * Math.cos(angle), size * 0.95 * Math.sin(angle)));
-    }
-    return verts;
+  // Real 3D extruded hex geometry
+  const hex3DGeometry = useMemo(() => {
+    const hexShape = createHexShape(size);
+    const extrudeSettings = {
+      depth: HEX_DEPTH,
+      bevelEnabled: true,
+      bevelThickness: 0.015,
+      bevelSize: 0.015,
+      bevelSegments: 2,
+    };
+    return new THREE.ExtrudeGeometry(hexShape, extrudeSettings);
   }, [size]);
 
-  // Gradient hex shape (6 triangular wedges with center-to-edge gradient)
-  const hexGeometry = useMemo(() => {
+  // Top face geometry for gradient effect
+  const hexTopGeometry = useMemo(() => {
     const geometry = new THREE.BufferGeometry();
     const positions: number[] = [];
     const colors: number[] = [];
@@ -116,13 +121,17 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
     const edgeColor = darken(baseColor, 0.15);
 
     for (let i = 0; i < 6; i++) {
-      const v1 = hexVertices[i];
-      const v2 = hexVertices[(i + 1) % 6];
+      const angle1 = (Math.PI / 3) * i;
+      const angle2 = (Math.PI / 3) * ((i + 1) % 6);
+      const v1x = size * 0.95 * Math.cos(angle1);
+      const v1y = size * 0.95 * Math.sin(angle1);
+      const v2x = size * 0.95 * Math.cos(angle2);
+      const v2y = size * 0.95 * Math.sin(angle2);
 
       // Triangle: center, v1, v2
       positions.push(0, 0, 0);
-      positions.push(v1.x, v1.y, 0);
-      positions.push(v2.x, v2.y, 0);
+      positions.push(v1x, v1y, 0);
+      positions.push(v2x, v2y, 0);
 
       // Colors: center bright, edges darker
       colors.push(centerColor.r, centerColor.g, centerColor.b);
@@ -133,13 +142,7 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     return geometry;
-  }, [hexVertices, baseColor, isHovered]);
-
-  // 3D depth layer - simple hex shape offset behind the main hex
-  const hexDepthGeometry = useMemo(() => {
-    const hexShape = createHexShape(size);
-    return new THREE.ShapeGeometry(hexShape);
-  }, [size]);
+  }, [size, baseColor, isHovered]);
 
   // Inner highlight ring (70% size)
   const innerRingGeometry = useMemo(() => {
@@ -147,7 +150,7 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
     for (let i = 0; i <= 6; i++) {
       const angle = (Math.PI / 3) * (i % 6);
       points.push(
-        new THREE.Vector3(size * 0.6 * Math.cos(angle), size * 0.6 * Math.sin(angle), 0.02)
+        new THREE.Vector3(size * 0.6 * Math.cos(angle), size * 0.6 * Math.sin(angle), INNER_RING_Z_OFFSET)
       );
     }
     return new THREE.BufferGeometry().setFromPoints(points);
@@ -159,7 +162,7 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
     for (let i = 0; i <= 6; i++) {
       const angle = (Math.PI / 3) * (i % 6);
       points.push(
-        new THREE.Vector3(size * 0.95 * Math.cos(angle), size * 0.95 * Math.sin(angle), 0.01)
+        new THREE.Vector3(size * 0.95 * Math.cos(angle), size * 0.95 * Math.sin(angle), BORDER_Z_OFFSET)
       );
     }
     return new THREE.BufferGeometry().setFromPoints(points);
@@ -224,6 +227,7 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
 
   const unitEntries = Object.entries(country.units).filter(([, n]) => n > 0);
   const borderColor = isHovered ? new THREE.Color('#ffffff') : darken(baseColor, 0.3);
+  const sideColor = darken(baseColor, 0.3);
 
   return (
     <group ref={groupRef} position={position}>
@@ -243,47 +247,40 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
         </group>
       )}
 
-      {/* 3D depth layer - darker hex behind the main one for depth effect */}
-      <mesh geometry={hexDepthGeometry} position={[DEPTH_LAYER_1_OFFSET.x, DEPTH_LAYER_1_OFFSET.y, DEPTH_LAYER_1_OFFSET.z]}>
-        <meshBasicMaterial
-          color={darken(baseColor, 0.4)}
-          transparent
-          opacity={isHovered ? 0.9 : 0.7}
-        />
-      </mesh>
-
-      {/* Second depth layer for more 3D feel */}
-      <mesh geometry={hexDepthGeometry} position={[DEPTH_LAYER_2_OFFSET.x, DEPTH_LAYER_2_OFFSET.y, DEPTH_LAYER_2_OFFSET.z]}>
-        <meshBasicMaterial
-          color={darken(baseColor, 0.25)}
-          transparent
-          opacity={isHovered ? 0.95 : 0.8}
-        />
-      </mesh>
-
-      {/* Main hex top face with gradient */}
+      {/* Real 3D extruded hex - sides are darker */}
       <mesh
-        geometry={hexGeometry}
+        geometry={hex3DGeometry}
         onClick={onClick}
         onPointerEnter={() => setHoveredHex(country.coords)}
         onPointerLeave={() => setHoveredHex(null)}
       >
-        <meshBasicMaterial vertexColors transparent opacity={isHovered ? 1.0 : 0.9} />
+        <meshBasicMaterial color={sideColor} />
       </mesh>
 
-      {/* Border */}
-      <lineLoop geometry={borderGeometry}>
+      {/* Top face with gradient - positioned at the extrusion height */}
+      <mesh
+        geometry={hexTopGeometry}
+        position={[0, 0, HEX_DEPTH]}
+        onClick={onClick}
+        onPointerEnter={() => setHoveredHex(country.coords)}
+        onPointerLeave={() => setHoveredHex(null)}
+      >
+        <meshBasicMaterial vertexColors transparent opacity={isHovered ? 1.0 : 0.95} />
+      </mesh>
+
+      {/* Border on top face */}
+      <lineLoop geometry={borderGeometry} position={[0, 0, HEX_DEPTH + 0.01]}>
         <lineBasicMaterial color={borderColor} linewidth={isHovered ? 3 : 2} />
       </lineLoop>
 
-      {/* Inner highlight */}
-      <lineLoop ref={innerHighlightRef} geometry={innerRingGeometry}>
+      {/* Inner highlight on top face */}
+      <lineLoop ref={innerHighlightRef} geometry={innerRingGeometry} position={[0, 0, HEX_DEPTH]}>
         <lineBasicMaterial color={lighten(baseColor, 0.4)} transparent opacity={0.4} />
       </lineLoop>
 
-      {/* Unit count badges */}
+      {/* Unit count badges - positioned above the 3D hex */}
       {unitEntries.length > 0 && (
-        <group position={[0, 0, 0.1]}>
+        <group position={[0, 0, HEX_DEPTH + 0.1]}>
           {unitEntries.map(([factionId, count], idx) => {
             const badgeColor = new THREE.Color(getFactionColor(factionId));
             const textColor = getContrastColor(badgeColor);
@@ -332,7 +329,7 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
 
       {/* Defense bonus badge - shows territorial advantage for local player in contested territories */}
       {defenseBonus > 0 && localFactionId && (
-        <group position={[0, -size * 0.32, 0.1]}>
+        <group position={[0, -size * 0.32, HEX_DEPTH + 0.1]}>
           {/* Badge background shadow */}
           <mesh geometry={defenseBadgeGeometry} position={[size * 0.015, -size * 0.015, -0.01]}>
             <meshBasicMaterial color="#000000" transparent opacity={0.4} />
