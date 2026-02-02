@@ -105,8 +105,11 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
       bevelSegments: 2,
     };
     const geometry = new THREE.ExtrudeGeometry(hexShape, extrudeSettings);
-    // Rotate so the extrusion goes along the Z axis (upward)
+    // ExtrudeGeometry creates the extrusion along the positive Z axis by default,
+    // but the shape's "front face" ends up on the back. Rotate 180° around X-axis
+    // to flip the geometry so the top face (with proper normals) faces upward (+Z).
     geometry.rotateX(Math.PI);
+    // After rotation, translate to position the base at z=0 and top at z=HEX_DEPTH
     geometry.translate(0, 0, HEX_DEPTH);
     return geometry;
   }, [size]);

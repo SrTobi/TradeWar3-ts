@@ -22,21 +22,20 @@ const LEFT_PANEL_WIDTH = 520; // Width of StockPanel in pixels
 
 // Camera angle for 3D view (tilt angle in radians, ~30 degrees from vertical)
 const CAMERA_TILT_ANGLE = Math.PI / 6; // 30 degrees
+// Extra distance padding to ensure map fits with some margin
+const CAMERA_DISTANCE_PADDING = 1.2;
+// Factor for centering the map accounting for UI panel offset
+const PANEL_OFFSET_FACTOR = 0.5;
 
 function CameraController() {
   const { camera, size } = useThree();
   const cameraRef = useRef(camera as THREE.PerspectiveCamera);
-  const initializedRef = useRef(false);
 
   useEffect(() => {
     cameraRef.current = camera as THREE.PerspectiveCamera;
   }, [camera]);
 
   useEffect(() => {
-    // Only run once to avoid update loops
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-    
     const updateCamera = () => {
       const cam = cameraRef.current;
       if (!cam) return;
@@ -54,17 +53,17 @@ function CameraController() {
       const distanceForHeight = (worldHeight / 2) / Math.tan(fov / 2);
       const distanceForWidth = (worldWidth / 2) / Math.tan(fov / 2) / aspectRatio;
       
-      // Use the larger distance to ensure the map fits
-      const distance = Math.max(distanceForHeight, distanceForWidth) * 1.2;
+      // Use the larger distance to ensure the map fits, with padding for margin
+      const distance = Math.max(distanceForHeight, distanceForWidth) * CAMERA_DISTANCE_PADDING;
 
       // Position camera at an angle to see the 3D depth
       const cameraY = -distance * Math.sin(CAMERA_TILT_ANGLE);
       const cameraZ = distance * Math.cos(CAMERA_TILT_ANGLE);
       
       // Offset camera to center map in available space (right of panel)
-      // For perspective camera, we need to calculate the offset differently
+      // The offset factor scales the world width by the panel's proportion of screen width
       const offsetFactor = LEFT_PANEL_WIDTH / size.width;
-      const offsetX = -worldWidth * offsetFactor * 0.5;
+      const offsetX = -worldWidth * offsetFactor * PANEL_OFFSET_FACTOR;
 
       cam.position.set(offsetX, cameraY, cameraZ);
       cam.lookAt(offsetX, 0, 0);
