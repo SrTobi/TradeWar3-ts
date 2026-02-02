@@ -57,11 +57,10 @@ function createRoundedRectShape(width: number, height: number, radius: number): 
   return shape;
 }
 
-// 3D depth effect constants
-const DEPTH_LAYER_1_OFFSET = { x: 0.03, y: -0.03, z: -0.05 };  // Back shadow layer
-const DEPTH_LAYER_2_OFFSET = { x: 0.015, y: -0.015, z: -0.02 }; // Middle shadow layer
+// 3D hex extrusion depth
+const HEX_DEPTH = 0.15;
 
-// Create hex shape for depth shadow layers
+// Create hex shape for 3D extrusion
 function createHexShape(size: number): THREE.Shape {
   const shape = new THREE.Shape();
   for (let i = 0; i < 6; i++) {
@@ -95,71 +94,42 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
 
   const baseColor = useMemo(() => new THREE.Color(getFactionColor(owner)), [owner]);
 
-  // Hex vertices for flat-top orientation
-  const hexVertices = useMemo(() => {
-    const verts: THREE.Vector2[] = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i;
-      verts.push(new THREE.Vector2(size * 0.95 * Math.cos(angle), size * 0.95 * Math.sin(angle)));
-    }
-    return verts;
-  }, [size]);
-
-  // Gradient hex shape (6 triangular wedges with center-to-edge gradient)
-  const hexGeometry = useMemo(() => {
-    const geometry = new THREE.BufferGeometry();
-    const positions: number[] = [];
-    const colors: number[] = [];
-
-    const hoverBoost = isHovered ? 0.15 : 0;
-    const centerColor = lighten(baseColor, 0.2 + hoverBoost);
-    const edgeColor = darken(baseColor, 0.15);
-
-    for (let i = 0; i < 6; i++) {
-      const v1 = hexVertices[i];
-      const v2 = hexVertices[(i + 1) % 6];
-
-      // Triangle: center, v1, v2
-      positions.push(0, 0, 0);
-      positions.push(v1.x, v1.y, 0);
-      positions.push(v2.x, v2.y, 0);
-
-      // Colors: center bright, edges darker
-      colors.push(centerColor.r, centerColor.g, centerColor.b);
-      colors.push(edgeColor.r, edgeColor.g, edgeColor.b);
-      colors.push(edgeColor.r, edgeColor.g, edgeColor.b);
-    }
-
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    return geometry;
-  }, [hexVertices, baseColor, isHovered]);
-
-  // 3D depth layer - simple hex shape offset behind the main hex
-  const hexDepthGeometry = useMemo(() => {
+  // 3D extruded hex geometry - real 3D hexagonal prism
+  const hex3DGeometry = useMemo(() => {
     const hexShape = createHexShape(size);
-    return new THREE.ShapeGeometry(hexShape);
+    const extrudeSettings = {
+      depth: HEX_DEPTH,
+      bevelEnabled: true,
+      bevelThickness: 0.02,
+      bevelSize: 0.02,
+      bevelSegments: 2,
+    };
+    const geometry = new THREE.ExtrudeGeometry(hexShape, extrudeSettings);
+    // Rotate so the extrusion goes along the Z axis (upward)
+    geometry.rotateX(Math.PI);
+    geometry.translate(0, 0, HEX_DEPTH);
+    return geometry;
   }, [size]);
 
-  // Inner highlight ring (70% size)
+  // Inner highlight ring (70% size) - flat geometry, positioned by group
   const innerRingGeometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
     for (let i = 0; i <= 6; i++) {
       const angle = (Math.PI / 3) * (i % 6);
       points.push(
-        new THREE.Vector3(size * 0.6 * Math.cos(angle), size * 0.6 * Math.sin(angle), 0.02)
+        new THREE.Vector3(size * 0.6 * Math.cos(angle), size * 0.6 * Math.sin(angle), 0)
       );
     }
     return new THREE.BufferGeometry().setFromPoints(points);
   }, [size]);
 
-  // Border geometry
+  // Border geometry - flat, positioned by group
   const borderGeometry = useMemo(() => {
     const points: THREE.Vector3[] = [];
     for (let i = 0; i <= 6; i++) {
       const angle = (Math.PI / 3) * (i % 6);
       points.push(
-        new THREE.Vector3(size * 0.95 * Math.cos(angle), size * 0.95 * Math.sin(angle), 0.01)
+        new THREE.Vector3(size * 0.95 * Math.cos(angle), size * 0.95 * Math.sin(angle), 0)
       );
     }
     return new THREE.BufferGeometry().setFromPoints(points);
@@ -229,7 +199,7 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
     <group ref={groupRef} position={position}>
       {/* Glow rings (behind main hex) */}
       {!isNeutral && (
-        <group ref={glowRingsRef} position={[0, 0, -0.15]}>
+        <group ref={glowRingsRef} position={[0, 0, -0.05]}>
           {glowRingGeometries.map((geo, i) => (
             <mesh key={i} geometry={geo}>
               <meshBasicMaterial
@@ -243,47 +213,35 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
         </group>
       )}
 
-      {/* 3D depth layer - darker hex behind the main one for depth effect */}
-      <mesh geometry={hexDepthGeometry} position={[DEPTH_LAYER_1_OFFSET.x, DEPTH_LAYER_1_OFFSET.y, DEPTH_LAYER_1_OFFSET.z]}>
-        <meshBasicMaterial
-          color={darken(baseColor, 0.4)}
-          transparent
-          opacity={isHovered ? 0.9 : 0.7}
-        />
-      </mesh>
-
-      {/* Second depth layer for more 3D feel */}
-      <mesh geometry={hexDepthGeometry} position={[DEPTH_LAYER_2_OFFSET.x, DEPTH_LAYER_2_OFFSET.y, DEPTH_LAYER_2_OFFSET.z]}>
-        <meshBasicMaterial
-          color={darken(baseColor, 0.25)}
-          transparent
-          opacity={isHovered ? 0.95 : 0.8}
-        />
-      </mesh>
-
-      {/* Main hex top face with gradient */}
+      {/* Main 3D extruded hex tile */}
       <mesh
-        geometry={hexGeometry}
+        geometry={hex3DGeometry}
         onClick={onClick}
         onPointerEnter={() => setHoveredHex(country.coords)}
         onPointerLeave={() => setHoveredHex(null)}
       >
-        <meshBasicMaterial vertexColors transparent opacity={isHovered ? 1.0 : 0.9} />
+        <meshStandardMaterial
+          color={isHovered ? lighten(baseColor, 0.15) : baseColor}
+          roughness={0.4}
+          metalness={0.3}
+          emissive={baseColor}
+          emissiveIntensity={isNeutral ? 0.05 : 0.15}
+        />
       </mesh>
 
-      {/* Border */}
-      <lineLoop geometry={borderGeometry}>
+      {/* Border on top face */}
+      <lineLoop geometry={borderGeometry} position={[0, 0, HEX_DEPTH + 0.01]}>
         <lineBasicMaterial color={borderColor} linewidth={isHovered ? 3 : 2} />
       </lineLoop>
 
-      {/* Inner highlight */}
-      <lineLoop ref={innerHighlightRef} geometry={innerRingGeometry}>
+      {/* Inner highlight on top face */}
+      <lineLoop ref={innerHighlightRef} geometry={innerRingGeometry} position={[0, 0, HEX_DEPTH + 0.02]}>
         <lineBasicMaterial color={lighten(baseColor, 0.4)} transparent opacity={0.4} />
       </lineLoop>
 
       {/* Unit count badges */}
       {unitEntries.length > 0 && (
-        <group position={[0, 0, 0.1]}>
+        <group position={[0, 0, HEX_DEPTH + 0.1]}>
           {unitEntries.map(([factionId, count], idx) => {
             const badgeColor = new THREE.Color(getFactionColor(factionId));
             const textColor = getContrastColor(badgeColor);
@@ -332,7 +290,7 @@ export function Hex({ country, defenseBonus, localFactionId, size, onClick }: He
 
       {/* Defense bonus badge - shows territorial advantage for local player in contested territories */}
       {defenseBonus > 0 && localFactionId && (
-        <group position={[0, -size * 0.32, 0.1]}>
+        <group position={[0, -size * 0.32, HEX_DEPTH + 0.1]}>
           {/* Badge background shadow */}
           <mesh geometry={defenseBadgeGeometry} position={[size * 0.015, -size * 0.015, -0.01]}>
             <meshBasicMaterial color="#000000" transparent opacity={0.4} />

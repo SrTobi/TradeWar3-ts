@@ -58,9 +58,22 @@ export function SpaceDust() {
     const dust = dustRef.current;
     if (!meshRef.current || dust.length === 0) return;
 
-    const camera = state.camera as THREE.OrthographicCamera;
-    const actualHalfW = (camera.right - camera.left) / 2 / camera.zoom + 4;
-    const actualHalfH = (camera.top - camera.bottom) / 2 / camera.zoom + 4;
+    // Get actual camera bounds - works with both perspective and orthographic cameras
+    let actualHalfW: number;
+    let actualHalfH: number;
+    
+    if ((state.camera as THREE.OrthographicCamera).isOrthographicCamera) {
+      const camera = state.camera as THREE.OrthographicCamera;
+      actualHalfW = (camera.right - camera.left) / 2 / camera.zoom + 4;
+      actualHalfH = (camera.top - camera.bottom) / 2 / camera.zoom + 4;
+    } else {
+      // For perspective camera, estimate visible area
+      const camera = state.camera as THREE.PerspectiveCamera;
+      const distance = camera.position.length();
+      const fov = camera.fov * (Math.PI / 180);
+      actualHalfH = Math.tan(fov / 2) * distance + 4;
+      actualHalfW = actualHalfH * camera.aspect + 4;
+    }
 
     for (let i = 0; i < dust.length; i++) {
       const p = dust[i];
