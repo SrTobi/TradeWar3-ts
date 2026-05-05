@@ -25,7 +25,7 @@ jobs:
 
             REPO_URL="https://github.com/${{ github.repository }}.git"
             REPO_DIR=~/tradewar-server
-            DOMAIN="${{ secrets.DOMAIN }}"
+            SERVICE_NAME="tradewar-server"
 
             # Clone or pull the repository
             if [ -d "$REPO_DIR/.git" ]; then
@@ -40,89 +40,22 @@ jobs:
               cd "$REPO_DIR"
             fi
 
-            # Install pnpm if not available
-            if ! command -v pnpm &> /dev/null; then
-              echo "Installing pnpm..."
-              npm install -g pnpm
-            fi
-
-            # Install dependencies and bundle server
+            # Install dependencies
             echo "Installing dependencies..."
-            pnpm install
+            pnpm install --frozen-lockfile
 
             echo "Bundling server..."
             pnpm run bundle:server
+            
+            sudo systemctl restart ${SERVICE_NAME}
 
-            # Stop existing server if running
-            if [ -f server.pid ]; then
-              OLD_PID=$(cat server.pid)
-              if kill -0 $OLD_PID 2>/dev/null; then
-                echo "Stopping existing server (PID: $OLD_PID)..."
-                kill $OLD_PID || true
-                sleep 2
-              fi
-              rm -f server.pid
-            fi
-
-            # Start game server with nohup
-            echo "Starting game server..."
-            nohup node server-bundle/server.js > server.log 2>&1 &
-            echo $! > server.pid
-
-            # Wait and verify server started
+            # Verify service started
             sleep 3
-            if kill -0 $(cat server.pid) 2>/dev/null; then
-              echo "Game server started successfully (PID: $(cat server.pid))"
-              tail -5 server.log
+            if sudo systemctl is-active --quiet ${SERVICE_NAME}; then
+              echo "Service started successfully."
+              sudo journalctl -u ${SERVICE_NAME} --no-pager -n 10
             else
-              echo "Game server failed to start. Logs:"
-              cat server.log
+              echo "Service failed to start. Logs:"
+              sudo journalctl -u ${SERVICE_NAME} --no-pager -n 30
               exit 1
-            fi
-
-            # Install and configure Caddy for HTTPS if domain is set
-            if [ -n "$DOMAIN" ]; then
-              echo "Setting up Caddy for HTTPS..."
-              
-              # Install Caddy if not present
-              if ! command -v caddy &> /dev/null; then
-                echo "Installing Caddy..."
-                apt-get update
-                apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
-                curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-                curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
-                apt-get update
-                apt-get install -y caddy
-              fi
-
-              # Create Caddyfile
-              echo "Configuring Caddy for domain: $DOMAIN"
-              cat > /etc/caddy/Caddyfile << EOF
-            $DOMAIN {
-                # Serve static files (if built frontend exists)
-                root * $REPO_DIR/dist
-                file_server
-
-                # WebSocket proxy for the game server
-                handle /ws {
-                    reverse_proxy localhost:12346
-                }
-
-                # Fallback to index.html for SPA routing
-                try_files {path} /index.html
-
-                tls { 
-                  issuer acme {
-                    profile shortlived
-                  }
-                }
-            }
-            EOF
-
-              # Reload Caddy
-              systemctl reload caddy || systemctl start caddy
-              echo "Caddy configured and running for $DOMAIN"
-            else
-              echo "No DOMAIN secret set - skipping Caddy setup"
-              echo "Game server running on port 12346 (WebSocket only)"
             fi
